@@ -1,2 +1,7 @@
 streamlit
-psycopg2
+psycopg2-binary
+pandas
+
+fpdf
+openpyxl
+xlsxwriter 
