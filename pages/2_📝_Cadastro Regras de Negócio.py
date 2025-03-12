@@ -1111,7 +1111,7 @@ with st.form("form_textos_resumo"):
                 <span class="tooltiptext">{tooltip_content}</span>
             </span>
             """
-            return html_icon
+            return html_icon.replace("\n", "").strip()
 
         df_viz["Detalhes"] = df_viz.apply(build_tooltip_icon, axis=1)
 
