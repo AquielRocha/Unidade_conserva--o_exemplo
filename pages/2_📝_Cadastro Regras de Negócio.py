@@ -1113,7 +1113,7 @@ with st.form("form_textos_resumo"):
             """
             return html_icon.replace("\n", "").strip()
 
-        df_viz["Detalhes"] = df_viz.apply(build_tooltip_icon, axis=1)
+        df_viz["info"] = df_viz.apply(build_tooltip_icon, axis=1)
 
         # Linha de Totais
         df_raw = st.session_state["df_uc_editado"].copy()
@@ -1213,6 +1213,20 @@ with st.form("form_textos_resumo"):
         }
         .tooltip:hover .tooltiptext {
             visibility: visible;
+        }
+
+        /* centraliza a 3a coluna (ícone '+') */
+        .table-container table th:nth-child(5),
+        .table-container table td:nth-child(5) {
+            text-align: center !important;
+            vertical-align: middle;
+        }
+
+        /* centraliza a 1a coluna (No) */
+        .table-container table th:nth-child(1),
+        .table-container table td:nth-child(1) {
+            text-align: center !important;
+            vertical-align: middle;
         }
         </style>
         """
