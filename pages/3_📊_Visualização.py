@@ -10,7 +10,8 @@ import html
 import re
 import tempfile
 from io import BytesIO
-
+import os 
+import base64
 # PDF com xhtml2pdf
 from xhtml2pdf import pisa
 
@@ -28,7 +29,38 @@ st.set_page_config(
     layout="wide"
 )
 st.subheader("📊 Visualização de Cadastros Realizados")
+# --------------------------------------------------
+# Função auxiliar para converter imagem em base64
+# --------------------------------------------------
+def get_base64_of_bin_file(bin_file):
+    with open(bin_file, "rb") as f:
+        data = f.read()
+    return base64.b64encode(data).decode()
 
+# Caminho para a imagem de fundo
+img_path = os.path.join("public", "assets", "plano.jpg")
+img_base64 = get_base64_of_bin_file(img_path)
+
+# --------------------------------------------------
+# CSS para imagem de fundo e customização da sidebar
+# --------------------------------------------------
+BACKGROUND_CSS = f"""
+<style>
+/* Fundo da aplicação */
+.stApp {{
+    background: url("data:image/jpg;base64,{img_base64}");
+    background-size: cover;
+    background-position: center;
+}}
+
+/* Força a cor de fundo da sidebar */
+[data-testid="stSidebar"] > div:first-child {{
+    background-color: rgba(0, 0, 0, 0.6) !important;
+}}
+
+</style>
+"""
+st.markdown(BACKGROUND_CSS, unsafe_allow_html=True)
 ###############################################################################
 #                    2. FUNÇÕES DE CARREGAMENTO DE DADOS                      #
 ###############################################################################
