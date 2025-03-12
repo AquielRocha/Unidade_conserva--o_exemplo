@@ -1260,19 +1260,19 @@ with st.form("form_textos_resumo"):
         column_config["TetoTotalDisponivel"] = st.column_config.NumberColumn(
             label="Teto Total Disponível",
             disabled=True,
-            format="R$%.2f"
+            format="accounting"
         )
         column_config["A Distribuir"] = st.column_config.NumberColumn(
             label="Saldo a Distribuir",
             disabled=True,
-            format="R$%.2f"
+            format="accounting"
         )
 
         # Eixos editáveis
         for col in col_eixos:
             column_config[col] = st.column_config.NumberColumn(
                 label=col,   # ou algum label amigável se quiser
-                format="R$%.2f"
+                format="accounting"
             )
 
         # Data editor
@@ -1461,6 +1461,28 @@ with st.form("form_textos_resumo"):
 
     #     # Renderiza via markdown, permitindo HTML
     #     st.markdown(html_table, unsafe_allow_html=True)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
 
     # -------------------------------------------
     # 7) FORMAS DE CONTRATAÇÃO
