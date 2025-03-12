@@ -1,7 +1,8 @@
 streamlit
-psycopg2-binary
 pandas
-
-fpdf
+numpy
+streamlit-aggrid
 openpyxl
-xlsxwriter 
+matplotlib
+streamlit-pdf-viewer
+xhtml2pdf
