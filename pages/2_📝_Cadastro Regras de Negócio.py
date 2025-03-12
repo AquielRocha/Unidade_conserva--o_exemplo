@@ -1145,27 +1145,50 @@ with st.form("form_textos_resumo"):
         # Monta o HTML + CSS
         custom_css = """
         <style>
+        /* Variáveis para temas claro e escuro */
+        :root {
+            --border-color: #ccc;
+            --cell-border-color: #ddd;
+            --header-bg: #f2f2f2;
+            --tooltip-bg: #fafafa;
+            --tooltip-color: #000;
+            --tooltip-border: #ccc;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --border-color: #555;
+                --cell-border-color: #666;
+                --header-bg: #333;
+                --tooltip-bg: #222;
+                --tooltip-color: #fff;
+                --tooltip-border: #444;
+            }
+        }
+
+        /* Estilos da tabela */
         .table-container {
             max-height: 600px;
             overflow-y: auto;
             margin-bottom: 1rem;
-            border: 1px solid #ccc;
+            border: 1px solid var(--border-color);
         }
         .table-container table {
             border-collapse: collapse;
             width: 100%;
         }
         .table-container th, .table-container td {
-            border: 1px solid #ddd;
+            border: 1px solid var(--cell-border-color);
             padding: 8px;
         }
         .table-container th {
-            background-color: #f2f2f2;
+            background-color: var(--header-bg);
             position: sticky;
             top: 0;
             z-index: 2;
             text-align: center;
         }
+
+        /* Estilos para tooltip */
         .tooltip {
             position: relative;
             display: inline-block;
@@ -1173,10 +1196,10 @@ with st.form("form_textos_resumo"):
         .tooltip .tooltiptext {
             visibility: hidden;
             width: 300px;
-            background-color: #fafafa;
-            color: #000;
+            background-color: var(--tooltip-bg);
+            color: var(--tooltip-color);
             text-align: left;
-            border: 1px solid #ccc;
+            border: 1px solid var(--tooltip-border);
             padding: 5px;
             border-radius: 4px;
             font-size: 0.9em;
@@ -1191,6 +1214,7 @@ with st.form("form_textos_resumo"):
         }
         </style>
         """
+
         st.markdown(custom_css, unsafe_allow_html=True)
         html_table = df_viz.to_html(index=False, escape=False)
         st.markdown(f"<div class='table-container'>{html_table}</div>", unsafe_allow_html=True)

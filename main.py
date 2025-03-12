@@ -140,34 +140,11 @@ if cpf_input:
             # Obtém a lista de setores demandantes
             lista_setores = obter_setores_demandantes()
 
-            if "editar_setor" not in st.session_state:
-                st.session_state["editar_setor"] = False
-
-            st.session_state["editar_setor"] = st.toggle("Editar Setor", value=st.session_state["editar_setor"])
-
-            if st.session_state["editar_setor"]:
-                # Editando setor
-                if lista_setores:
-                    novo_setor = st.selectbox(
-                        "Selecione o novo setor", 
-                        lista_setores, 
-                        index=lista_setores.index(setor_demandante) if setor_demandante in lista_setores else 0
-                    )
-                else:
-                    novo_setor = st.text_input("Setor Demandante (Nenhum setor cadastrado)", value=setor_demandante)
-
-                if st.button("✅ Salvar Alteração"):
-                    atualizar_setor(cpf_input, novo_setor)
-                    st.success("✅ Setor atualizado com sucesso!")
-                    time.sleep(2)
-                    st.session_state["editar_setor"] = False
-                    st.rerun()
+            # Exibe o setor sem permitir edição
+            if lista_setores and setor_demandante in lista_setores:
+                st.selectbox("Setor Demandante", lista_setores, index=lista_setores.index(setor_demandante), disabled=True)
             else:
-                # Exibe setor sem edição
-                if lista_setores and setor_demandante in lista_setores:
-                    st.selectbox("Setor Demandante", lista_setores, index=lista_setores.index(setor_demandante), disabled=True)
-                else:
-                    st.text_input("Setor Demandante", value=setor_demandante, disabled=True)
+                st.text_input("Setor Demandante", value=setor_demandante, disabled=True)
 
             # Armazena dados na sessão
             st.session_state["usuario_logado"] = True
