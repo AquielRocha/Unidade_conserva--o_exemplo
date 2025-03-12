@@ -1158,7 +1158,7 @@ with st.form("form_textos_resumo"):
             :root {
                 --border-color: #555;
                 --cell-border-color: #666;
-                --header-bg: #333;
+                --header-bg: #b0b2b5;
                 --tooltip-bg: #222;
                 --tooltip-color: #fff;
                 --tooltip-border: #444;
@@ -1186,6 +1186,8 @@ with st.form("form_textos_resumo"):
             top: 0;
             z-index: 2;
             text-align: center;
+            /* font color */
+            color: #333;
         }
 
         /* Estilos para tooltip */
