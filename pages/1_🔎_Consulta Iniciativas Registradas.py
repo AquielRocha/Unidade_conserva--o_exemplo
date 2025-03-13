@@ -15,10 +15,10 @@ if "usuario_logado" not in st.session_state or not st.session_state["usuario_log
     st.warning("🔒 Acesso negado! Faça login na página principal para acessar esta seção.")
     st.stop()
 
-# não mostrar página se o perfil for diferente de admin
-if st.session_state["perfil"] != "admin":
-    st.warning("🔒 Acesso negado! Você não tem permissão para acessar esta seção.")
-    st.stop()
+# # não mostrar página se o perfil for diferente de admin
+# if st.session_state["perfil"] != "admin":
+#     st.warning("🔒 Acesso negado! Você não tem permissão para acessar esta seção.")
+#     st.stop()
 
 st.set_page_config(
     page_title="Consultar Registros",
