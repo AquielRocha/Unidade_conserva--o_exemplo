@@ -47,6 +47,7 @@ BACKGROUND_CSS = f"""
     background: url("data:image/jpg;base64,{img_base64}");
     background-size: cover;
     background-position: center;
+    color: #000000;
 }}
 
 
