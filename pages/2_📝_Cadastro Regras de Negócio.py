@@ -598,7 +598,7 @@ with st.form("form_textos_resumo"):
     # Aba de Demais Informações
     # Aba de Demandante (somente Diretoria e Usuário Responsável)
     with tab_demandante:
-        st.markdown("##### Informações do Usuário Responsável")
+        st.subheader("Informações do Usuário Responsável")
 
         # Recupera as informações do usuário logado do session_state
         nome_usuario = st.session_state.get("nome", "(não informado)")
