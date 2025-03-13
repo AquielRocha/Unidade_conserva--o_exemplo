@@ -158,7 +158,9 @@ st.markdown("---")
 # ------------------------------------------------------------------------
 # 1) Formulário de Sugestão Lado Esquerdo
 # ------------------------------------------------------------------------
-col_form, col_empty, col_filtros = st.columns([10, 0.5, 2])
+# col_form, col_empty, col_filtros = st.columns([10, 0.5, 2])
+
+col_filtros, col_empty, col_form = st.columns([2, 0.5, 10])
 
 with col_form:
     st.markdown("### Formulário de Sugestão")
