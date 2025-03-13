@@ -54,6 +54,15 @@ def init_database():
 
 
 
+
+    # Cria (ou ignora) um usuário com perfil cocam
+    cursor.execute("""
+        INSERT OR IGNORE INTO tf_usuarios (cpf, nome_completo, email, setor_demandante, perfil)
+        VALUES (?, ?, ?, ?, ?)
+    """, ("08672224760", "Luiz Felipe de Luca de Souza", "luiz-felipe.souza@icmbio.gov.br ", "DIMAN", "comum"))
+
+
+
     # Caminho do arquivo carregado
     file_path = "dados/base_iniciativas_consolidada.xlsx"
 
