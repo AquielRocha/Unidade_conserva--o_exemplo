@@ -160,46 +160,18 @@ st.markdown("---")
 # ------------------------------------------------------------------------
 # col_form, col_empty, col_filtros = st.columns([10, 0.5, 2])
 
-col_filtros, col_empty, col_form = st.columns([2, 0.5, 10])
 
-with col_form:
+
+
+col_title, col_empty, col_botaoFiltro = st.columns([10, 0.5, 3])
+with col_title:
     st.markdown("### Formulário de Sugestão")
-    with st.form(key="form_sugestao_texto_livre"):
-        elemento_text = st.text_input("Elemento de Despesa (texto livre)").strip()
-        espec_text = st.text_input("Especificação Padrão (texto livre)").strip()
-        desc_insumo_text = st.text_input("Descrição do Insumo (texto livre)").strip()
-        preco_input = st.number_input("Preço de Referência (R$)", min_value=0.0, step=0.5, value=0.0)
 
-        submitted_livre = st.form_submit_button("Enviar Sugestão")
-        if submitted_livre:
-            if not elemento_text:
-                st.error("O campo 'Elemento de Despesa' é obrigatório!")
-            elif not espec_text:
-                st.error("O campo 'Especificação Padrão' é obrigatório!")
-            elif not desc_insumo_text:
-                st.error("O campo 'Descrição do Insumo' é obrigatório!")
-            else:
-                if check_existing_insumo(elemento_text, espec_text, desc_insumo_text):
-                    st.warning("Já existe um item com essa combinação de Elemento, Especificação e Descrição!")
-                else:
-                    user_setor = st.session_state.get("setor", "desconhecido")
-                    insert_insumo(
-                        elemento=elemento_text,
-                        espec_padrao=espec_text,
-                        nome_insumo=desc_insumo_text,
-                        preco=preco_input,
-                        origem=user_setor,
-                        situacao="em análise",
-                        registrado_por=usuario_cpf
-                    )
-                    st.success("Sugestão adicionada com sucesso!")
-                    st.rerun()
-
-
-# ------------------------------------------------------------------------
-# 2) Expander de Filtros (Selectboxes)
-# ------------------------------------------------------------------------
-with col_filtros:
+with col_botaoFiltro:
+    # ------------------------------------------------------------------------
+    # 2) Expander de Filtros (Selectboxes)
+    # ------------------------------------------------------------------------
+    # with col_filtros:
     with st.popover("Filtros de Consulta"):
         # Monta as opções de cada filtro
         todos_elementos = get_distinct_elementos()
@@ -219,6 +191,42 @@ with col_filtros:
         selected_insumo = st.selectbox("Descrição do Insumo:", options=[""] + insumos)
 
         st.info("Esses filtros serão aplicados às tabelas abaixo.")
+
+
+
+with st.form(key="form_sugestao_texto_livre"):
+    elemento_text = st.text_input("Elemento de Despesa (texto livre)").strip()
+    espec_text = st.text_input("Especificação Padrão (texto livre)").strip()
+    desc_insumo_text = st.text_input("Descrição do Insumo (texto livre)").strip()
+    preco_input = st.number_input("Preço de Referência (R$)", min_value=0.0, step=0.5, value=0.0)
+
+    submitted_livre = st.form_submit_button("Enviar Sugestão")
+    if submitted_livre:
+        if not elemento_text:
+            st.error("O campo 'Elemento de Despesa' é obrigatório!")
+        elif not espec_text:
+            st.error("O campo 'Especificação Padrão' é obrigatório!")
+        elif not desc_insumo_text:
+            st.error("O campo 'Descrição do Insumo' é obrigatório!")
+        else:
+            if check_existing_insumo(elemento_text, espec_text, desc_insumo_text):
+                st.warning("Já existe um item com essa combinação de Elemento, Especificação e Descrição!")
+            else:
+                user_setor = st.session_state.get("setor", "desconhecido")
+                insert_insumo(
+                    elemento=elemento_text,
+                    espec_padrao=espec_text,
+                    nome_insumo=desc_insumo_text,
+                    preco=preco_input,
+                    origem=user_setor,
+                    situacao="em análise",
+                    registrado_por=usuario_cpf
+                )
+                st.success("Sugestão adicionada com sucesso!")
+                st.rerun()
+
+
+
 
 
 st.markdown("---")
