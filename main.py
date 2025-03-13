@@ -49,10 +49,7 @@ BACKGROUND_CSS = f"""
     background-position: center;
 }}
 
-/* Força a cor de fundo da sidebar */
-[data-testid="stSidebar"] > div:first-child {{
-    background-color: rgba(0, 0, 0, 0.6) !important;
-}}
+
 
 </style>
 """
