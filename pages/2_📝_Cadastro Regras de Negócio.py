@@ -348,8 +348,8 @@ if iniciativas.empty:
     st.stop()
 
 with st.expander("Selecione a Iniciativa para Cadastro"):
-    nova_iniciativa = st.selectbox(
-        "Selecione a Iniciativa:",
+    nova_iniciativa = st.selectbox("",
+
         options=iniciativas["id_iniciativa"],
         format_func=lambda x: iniciativas.set_index(
             "id_iniciativa").loc[x, "nome_iniciativa"],
@@ -1026,11 +1026,11 @@ with st.form("form_textos_resumo"):
             if not st.session_state["edit_mode_uc_flag"]:
                 # Checkboxes de exibição
                 st.session_state["show_eixos_flag"] = st.checkbox(
-                    "Mostrar Eixos Temáticos na Tabela?",
+                    "Exibir Eixos Temáticos?",
                     value=st.session_state["show_eixos_flag"]
                 )
                 st.session_state["show_tetos_flag"] = st.checkbox(
-                    "Exibir Tetos Previstos?",
+                    "Exibir Tetos?",
                     value=st.session_state["show_tetos_flag"]
                 )
 
@@ -1096,7 +1096,7 @@ with st.form("form_textos_resumo"):
                 def build_tooltip(row):
                     lines = []
 
-                    # Se existirem eixos
+                    # # Se existirem eixos
                     if st.session_state["show_eixos_flag"]:
                         for c_eixo in col_eixos_db:  # <-- col_eixos_db deve estar definido fora
                             if c_eixo in row:
@@ -1109,15 +1109,21 @@ with st.form("form_textos_resumo"):
                                 lines.append(f"{c_eixo}: <strong>{v_clean}</strong>")
 
                     # Se existirem tetos
-                    if st.session_state["show_tetos_flag"]:
-                        for c_teto in col_tetos:
-                            if c_teto in row:
-                                val = row[c_teto]
-                                if not isinstance(val, str):
-                                    val = fmt_moeda(val)
-                                v_clean = val.replace("<div style='text-align:right;'>","").replace("</div>","")
-                                lines.append(f"{c_teto}: <strong>{v_clean}</strong>")
+                    # if st.session_state["show_tetos_flag"]:
+                    for c_teto in col_tetos:
+                        if c_teto in row:
+                            val = row[c_teto]
+                            if not isinstance(val, str):
+                                val = fmt_moeda(val)
+                            v_clean = val.replace("<div style='text-align:right;'>","").replace("</div>","")
+                            lines.append(f"{c_teto}: <strong>{v_clean}</strong>")
 
+         
+
+
+
+                    # Se não houver dados, adiciona uma linha padrão
+                    # (isso evita que o tooltip fique vazio)
                     if not lines:
                         lines.append("Sem dados extras")
 
@@ -1182,7 +1188,7 @@ with st.form("form_textos_resumo"):
                     "TetoPrevisto 2025":      "Teto Previsto 2025",
                     "TetoPrevisto 2026":      "Teto Previsto 2026",
                     "TetoPrevisto 2027":      "Teto Previsto 2027",
-                    "TetoTotalDisponivel":    "Teto Total Disponível",
+                    "TetoTotalDisponivel":    "Teto Total",
                     "A Distribuir":           "Saldo a Distribuir"
                 }
                 df_viz.rename(columns=rename_map, inplace=True)
@@ -1228,11 +1234,21 @@ with st.form("form_textos_resumo"):
                     font-size: 0.9em;
                     position: absolute;
                     z-index: 1;
-                    top: -20px;      /* Move ligeiramente para cima */
-                    left: 110%;      /* Mover para a direita */
+                    top: 150%;      /* Move ligeiramente para cima */
+                    left: -120%;      /* Mover para a direita */
                 }
                 .tooltip:hover .tooltiptext {
                     visibility: visible;
+                }
+                /* centralizar o ícone de informação */
+                .tooltip {
+                    text-align: center;
+                    display: block;
+                    margin: 0 auto;
+                }
+                /* centralizar primeira coluna (No) */
+                .table-container th:first-child, .table-container td:first-child {
+                    text-align: center;
                 }
                 </style>
                 """
@@ -1281,7 +1297,7 @@ with st.form("form_textos_resumo"):
                     elif c == "Unidade de Conservação":
                         column_config[c] = st.column_config.TextColumn(label="Unidade de Conservação", disabled=True)
                     elif c == "TetoTotalDisponivel":
-                        column_config[c] = st.column_config.NumberColumn(label="Teto Total Disponível", disabled=True, format="accounting")
+                        column_config[c] = st.column_config.NumberColumn(label="Teto Total", disabled=True, format="accounting")
                     elif c == "A Distribuir":
                         column_config[c] = st.column_config.NumberColumn(label="Saldo a Distribuir", disabled=True, format="accounting")
                     else:
@@ -1344,6 +1360,23 @@ with st.form("form_textos_resumo"):
     # chama a função para exibir a aba de distribuição de recursos
     # ---------------------------------------------------------
     aba_uc_distribuicao(tab_uc)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
