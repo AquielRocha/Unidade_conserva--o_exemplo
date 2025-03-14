@@ -893,10 +893,12 @@ with st.form("form_textos_resumo"):
     # ---------------------------------------------------------
    
 
+  
+
     # Conjunto das colunas consideradas "padrão" (não são eixos)
     COL_PADRAO = {
         "id",
-        "DEMANDANTE (diretoria)"
+        "DEMANDANTE (diretoria)",
         "Nome da Proposta/Iniciativa Estruturante",
         "AÇÃO DE APLICAÇÃO",
         "CNUC",
@@ -913,10 +915,7 @@ with st.form("form_textos_resumo"):
     }
 
     def load_data_from_db():
-        """Carrega e filtra as linhas da tabela para a iniciativa.
-        Não recalcula automaticamente o Saldo para não sobrescrever 
-        dados no DB sem o usuário clicar em 'Calcular Saldo'.
-        """
+        """Carrega e filtra as linhas da tabela para a iniciativa."""
         conn = sqlite3.connect(DB_PATH)
         df = pd.read_sql_query("SELECT * FROM tf_distribuicao_elegiveis", conn)
         conn.close()
@@ -930,7 +929,6 @@ with st.form("form_textos_resumo"):
 
         for idx, row in df_edit.iterrows():
             registro_id = row["id"]
-
             # Atualiza cada eixo
             for c_eixo in col_eixos:
                 val = float(row.get(c_eixo, 0.0))
@@ -939,7 +937,6 @@ with st.form("form_textos_resumo"):
                     SET "{c_eixo}" = ?
                     WHERE id = ?
                 """, (val, registro_id))
-
             # Atualiza saldo
             saldo_val = float(row.get("A Distribuir", 0.0))
             cursor.execute("""
@@ -952,15 +949,12 @@ with st.form("form_textos_resumo"):
         conn.close()
 
     def recalcular_saldo(df: pd.DataFrame):
-        """Recalcula 'A Distribuir' = TetoTotalDisponivel - soma(eixos). 
-        Retorna DataFrame atualizado."""
+        """Recalcula 'A Distribuir' = TetoTotalDisponivel - soma(eixos). Retorna DataFrame atualizado."""
         if df.empty:
             return df
 
-        # Descobrir colunas de eixos
         col_eixos_db = [c for c in df.columns if c not in COL_PADRAO]
 
-        # Converte colunas relevantes para numérico, se não forem
         if "TetoTotalDisponivel" in df.columns:
             df["TetoTotalDisponivel"] = pd.to_numeric(df["TetoTotalDisponivel"], errors="coerce").fillna(0)
 
@@ -973,53 +967,50 @@ with st.form("form_textos_resumo"):
             df["A Distribuir"] = pd.to_numeric(df["A Distribuir"], errors="coerce").fillna(0)
 
         for idx, row in df.iterrows():
-            soma_eixos = 0
-            for c_eixo in col_eixos_db:
-                soma_eixos += row[c_eixo]
+            soma_eixos = sum(row[c_eixo] for c_eixo in col_eixos_db)
             df.at[idx, "A Distribuir"] = row["TetoTotalDisponivel"] - soma_eixos
 
         return df
 
     def aba_uc_distribuicao(tab_uc):
         with tab_uc:
-            st.subheader("Alocação de Recursos por Eixo Temático")
+            
 
             # Flags de sessão
             if "edit_mode_uc_flag" not in st.session_state:
                 st.session_state["edit_mode_uc_flag"] = False
             if "show_eixos_flag" not in st.session_state:
-                st.session_state["show_eixos_flag"] = False
+                st.session_state["show_eixos_flag"] = True
             if "show_tetos_flag" not in st.session_state:
                 st.session_state["show_tetos_flag"] = False
 
 
+            col_sup1, col_sup2 = st.columns([1, 1])
 
-            
+            with col_sup1:
+                st.subheader("Alocação de Recursos por Eixo Temático")
 
-            # Checkbox de modo edição
-            edit_mode = st.toggle(
-                "Ativar Modo de Edição para Distribuição",
-                value=st.session_state["edit_mode_uc_flag"],
-                key="modo_edicao_uc"
-            )
-            if edit_mode != st.session_state["edit_mode_uc_flag"]:
-                st.session_state["edit_mode_uc_flag"] = edit_mode
-                st.rerun()
+                # 1) Toggle de edição
+                edit_mode = st.toggle(
+                    "Ativar Modo de Edição para Distribuição",
+                    value=st.session_state["edit_mode_uc_flag"],
+                    key="modo_edicao_uc"
+                )
+                if edit_mode != st.session_state["edit_mode_uc_flag"]:
+                    st.session_state["edit_mode_uc_flag"] = edit_mode
+                    st.rerun()
 
-            # Carrega do banco
+            # 2) Carrega DF do banco
             df_all = load_data_from_db()
-            # drop colunas DEMANDANTE, AÇÃO DE APLICAÇÃO, id_demandante, id_acao e nome da proposta
+            # Remove colunas que não iremos usar
             df_all.drop(columns=[
-                "DEMANDANTE (diretoria)", 
-                "AÇÃO DE APLICAÇÃO", 
-                "id_demandante", 
-                "id_acao", 
-                "Nome da Proposta/Iniciativa Estruturante"], 
-                inplace=True, errors='ignore')
-            
+                "DEMANDANTE (diretoria)",
+                "AÇÃO DE APLICAÇÃO",
+                "id_demandante",
+                "id_acao",
+                "Nome da Proposta/Iniciativa Estruturante"
+            ], inplace=True, errors='ignore')
 
-            
-            
             if df_all.empty:
                 st.warning("Nenhuma UC disponível para esta iniciativa.")
                 return
@@ -1028,45 +1019,50 @@ with st.form("form_textos_resumo"):
             # MODO VISUALIZAÇÃO
             # ---------------------------------------------------
             if not st.session_state["edit_mode_uc_flag"]:
-                # Checkboxes de exibição
-                st.session_state["show_eixos_flag"] = st.toggle(
-                    "Exibir Eixos Temáticos?",
-                    value=st.session_state["show_eixos_flag"]
-                )
-                st.session_state["show_tetos_flag"] = st.toggle(
-                    "Exibir Tetos?",
-                    value=st.session_state["show_tetos_flag"]
-                )
+
+                with col_sup2:
+                    
+                    # Checkboxes de exibição
+                    st.session_state["show_eixos_flag"] = st.toggle(
+                        "Exibir Eixos Temáticos?",
+                        value=st.session_state["show_eixos_flag"], 
+                    )
+
+                    # st.toggle(
+                    #     "Exibir Eixos Temáticos?",
+                    #     value=True,
+                    #     key="show_eixos_flag"
+                    # )
+
+                    st.session_state["show_tetos_flag"] = st.toggle(
+                        "Exibir Tetos?",
+                        value=st.session_state["show_tetos_flag"]
+                    )
 
                 df_viz = df_all.copy()
 
-
-                # filtra somente colunas de eixos com valores diferentes de 0
+                # 2.1) Filtra somente colunas de eixos que tenham soma > 0
                 col_eixos_db = [c for c in df_viz.columns if c not in COL_PADRAO]
                 for c_eixo in col_eixos_db:
-                    if df_viz[c_eixo].sum() == 0:
+                    if df_viz[c_eixo].fillna(0).sum() == 0:
                         df_viz.drop(columns=[c_eixo], inplace=True)
-                
-                # filtra somente linhas com teto total disponível maior que 0
-                df_viz = df_viz[df_viz["TetoTotalDisponivel"] > 0]
+
+                # 2.2) Filtra somente linhas com TetoTotalDisponivel > 0
+                if "TetoTotalDisponivel" in df_viz.columns:
+                    df_viz = df_viz[df_viz["TetoTotalDisponivel"] > 0]
                 if df_viz.empty:
                     st.warning("Nenhuma UC disponível com teto total maior que 0.")
                     return
 
-               
-
-                # Exibimos apenas as colunas principais inicialmente
-                # Precisamos de "No", "Unidade de Conservação", "TetoTotalDisponivel", "A Distribuir"
-                # mas "No" não existe no DF, então vamos inserir manualmente.
-                df_viz.reset_index(drop=True, inplace=True)
+                # 2.3) Inserir coluna "No"
+                df_viz = df_viz.reset_index(drop=True)
                 df_viz.insert(0, "No", range(1, len(df_viz) + 1))
 
-                # Quais eixos existem no DB
-                col_eixos_db = [c for c in df_viz.columns if c not in COL_PADRAO]
+                # 2.4) Reconstruir col_eixos_db após eventuais drops
+                col_eixos_db = [c for c in df_viz.columns if c not in COL_PADRAO and c not in ["No"]]
 
-                # Preparamos a lista exibir_cols
+                # 2.5) Monta lista exibir_cols
                 exibir_cols = ["No", "Unidade de Conservação", "TetoTotalDisponivel", "A Distribuir"]
-
                 if st.session_state["show_eixos_flag"] and col_eixos_db:
                     exibir_cols += col_eixos_db
 
@@ -1076,58 +1072,46 @@ with st.form("form_textos_resumo"):
                         if c_teto in df_viz.columns:
                             exibir_cols.append(c_teto)
 
-                # Remove duplicadas (caso algum glitch ocorra)
-                exibir_cols = list(dict.fromkeys(exibir_cols))  
-
-                # Filtra DF para as colunas existentes
+                # Remove duplicadas
+                exibir_cols = list(dict.fromkeys(exibir_cols))
+                # Filtra só colunas existentes
                 exibir_cols = [c for c in exibir_cols if c in df_viz.columns]
                 df_viz = df_viz[exibir_cols]
 
-                # Formatação monetária (função)
+                # 2.6) Formatação monetária
                 def fmt_moeda(x):
                     try:
                         return f"<div style='text-align:right;'>R$ {float(x):,.2f}</div>"
                     except:
                         return "<div style='text-align:right;'>R$ 0,00</div>"
 
-                # Aplica formatação nos campos monetários (TetoTotal, Saldo, eixos, tetos)
-                for col in df_viz.columns:
-                    if col not in ["No", "Unidade de Conservação", "info"]:
-                        # Tenta converter
-                        df_viz[col] = df_viz[col].apply(fmt_moeda)
+                for col_ in df_viz.columns:
+                    if col_ not in ["No", "Unidade de Conservação", "info"]:
+                        df_viz[col_] = df_viz[col_].apply(fmt_moeda)
 
-                # Cria coluna "info" SEMPRE (para exibir o ícone), mas com tooltip condicional
+                # 2.7) Criar coluna “info” (tooltip)
                 def build_tooltip(row):
                     lines = []
-
-                    # # Se existirem eixos
+                    # Eixos
                     if st.session_state["show_eixos_flag"]:
-                        for c_eixo in col_eixos_db:  # <-- col_eixos_db deve estar definido fora
+                        # Quais eixos aparecem no df_viz?
+                        for c_eixo in col_eixos_db:
                             if c_eixo in row:
                                 val = row[c_eixo]
-                                # Garante que seja string
                                 if not isinstance(val, str):
-                                    val = fmt_moeda(val)   # chama a função de formatação
-                                # "descasca" se necessário
+                                    val = fmt_moeda(val)
                                 v_clean = val.replace("<div style='text-align:right;'>","").replace("</div>","")
                                 lines.append(f"{c_eixo}: <strong>{v_clean}</strong>")
+                    # Tetos
+                    if st.session_state["show_tetos_flag"]:
+                        for c_teto in col_tetos:
+                            if c_teto in row:
+                                val = row[c_teto]
+                                if not isinstance(val, str):
+                                    val = fmt_moeda(val)
+                                v_clean = val.replace("<div style='text-align:right;'>","").replace("</div>","")
+                                lines.append(f"{c_teto}: <strong>{v_clean}</strong>")
 
-                    # Se existirem tetos
-                    # if st.session_state["show_tetos_flag"]:
-                    for c_teto in col_tetos:
-                        if c_teto in row:
-                            val = row[c_teto]
-                            if not isinstance(val, str):
-                                val = fmt_moeda(val)
-                            v_clean = val.replace("<div style='text-align:right;'>","").replace("</div>","")
-                            lines.append(f"{c_teto}: <strong>{v_clean}</strong>")
-
-         
-
-
-
-                    # Se não houver dados, adiciona uma linha padrão
-                    # (isso evita que o tooltip fique vazio)
                     if not lines:
                         lines.append("Sem dados extras")
 
@@ -1138,57 +1122,56 @@ with st.form("form_textos_resumo"):
                         <span class="tooltiptext">{tooltip_content}</span>
                     </span>
                     """
-                    return icon_html.replace("\n", "")
-
+                    return icon_html.strip()
 
                 df_viz["info"] = df_viz.apply(build_tooltip, axis=1)
 
-                # Reposiciona "info" como segunda coluna
-                # 1) remove se existir
-                col_list = df_viz.columns.tolist()
+                # 2.8) Reposiciona “info” como segunda coluna
+                col_list = list(df_viz.columns)
+                # Remove “info”, remove “No” e reinsera
                 if "info" in col_list:
                     col_list.remove("info")
-                    if "No" in col_list:
-                        col_list.remove("No")
-                        col_list = ["No", "info"] + col_list
-                    else:
-                        col_list = ["info"] + col_list
+                if "No" in col_list:
+                    col_list.remove("No")
+                col_list = ["No", "info"] + col_list
                 df_viz = df_viz[col_list]
 
                 # exclui coluna info do dataframe para não exibir na tabela
                 df_viz.drop(columns=["info"], inplace=True)
 
+                # exclui coluna No do dataframe para não exibir na tabela
+                df_viz.drop(columns=["No"], inplace=True)
+
                 # Linha de total
                 # Usar df_all (sem formatação)
                 df_all_num = df_all.copy()
                 df_all_num.reset_index(drop=True, inplace=True)
-                df_all_num.insert(0, "No", range(1, len(df_all_num) + 1))
+                df_all_num.insert(0, "No", range(1, len(df_all_num)+1))
+                # Converte numérico
+                for c_ in df_all_num.columns:
+                    if c_ not in ["No", "id", "id_iniciativa", "Unidade de Conservação"]:
+                        df_all_num[c_] = pd.to_numeric(df_all_num[c_], errors="coerce").fillna(0)
 
-                # Recalcula (ou garante) numérico para colunas
-                for c in df_all_num.columns:
-                    if c not in ["No", "id", "id_iniciativa", "Unidade de Conservação"]:
-                        df_all_num[c] = pd.to_numeric(df_all_num[c], errors="coerce").fillna(0)
-
-                soma_dict = {}
-                for c in df_viz.columns:
-                    if c in df_all_num.columns and c not in ["No", "Unidade de Conservação", "info"]:
-                        soma_val = df_all_num[c].sum()
-                        soma_dict[c] = fmt_moeda(soma_val)
+                def soma_format(col_name):
+                    if col_name in df_all_num.columns:
+                        return fmt_moeda(df_all_num[col_name].sum())
+                    return "<div style='text-align:right;'>R$ 0,00</div>"
 
                 total_row = {}
-                for c in df_viz.columns:
-                    if c == "No":
-                        total_row[c] = ""
-                    elif c == "Unidade de Conservação":
-                        total_row[c] = "<strong>TOTAL</strong>"
-                    elif c == "info":
-                        total_row[c] = ""
+                for c_ in df_viz.columns:
+                    if c_ == "No":
+                        total_row[c_] = ""
+                    elif c_ == "info":
+                        total_row[c_] = ""
+                    elif c_ == "Unidade de Conservação":
+                        total_row[c_] = "<strong>TOTAL</strong>"
                     else:
-                        total_row[c] = soma_dict.get(c, "<div style='text-align:right;'>R$ 0,00</div>")
+                        # Remove tags <div> se preferir
+                        total_row[c_] = soma_format(c_)
 
                 df_viz.loc[len(df_viz)] = total_row
 
-                # Renomeia colunas
+                # 2.10) Renomear colunas
                 rename_map = {
                     "Unidade de Conservação": "Unidade de Conservação",
                     "TetoSaldo disponível":   "Teto Saldo Disponível",
@@ -1200,7 +1183,32 @@ with st.form("form_textos_resumo"):
                 }
                 df_viz.rename(columns=rename_map, inplace=True)
 
-                # CSS p/ tooltip
+                # ====== DESTAQUE DAS COLUNAS DE EIXO COM SOMA > 0 ======
+                # Precisamos descobrir quais colunas de eixos realmente estão em df_viz.
+                eixos_exibidos = [c for c in col_eixos_db if c in df_viz.columns]
+
+                # Verificamos a soma de cada eixo em df_all para saber se > 0
+                # (df_viz também é formatação HTML, então melhor usar df_all)
+                highlight_eixos = []
+                for e_ in eixos_exibidos:
+                    if df_all[e_].fillna(0).sum() > 0:
+                        highlight_eixos.append(e_)
+
+                # Convert df_viz para Styler
+                df_style = df_viz.style
+
+                # Função para destacar colunas inteiras se elas estiverem em highlight_eixos
+                def highlight_columns(col, eixos):
+                    # Se col.name está em eixos, pintamos
+                    if col.name in eixos:
+                        return [ "background-color: #ffffcc; font-weight: bold;" ]*len(col)
+                    else:
+                        return [ "" ]*len(col)
+
+                # Aplica para cada coluna
+                df_style = df_style.apply(highlight_columns, axis=0, eixos=highlight_eixos)
+
+                # =========== CSS de Tooltip e Tabela ==============
                 custom_css = """
                 <style>
                 .table-container {
@@ -1228,7 +1236,6 @@ with st.form("form_textos_resumo"):
                     position: relative;
                     display: inline-block;
                 }
-                /* Ajuste para posicionar o tooltip mais à direita */
                 .tooltip .tooltiptext {
                     visibility: hidden;
                     width: 280px;
@@ -1241,8 +1248,8 @@ with st.form("form_textos_resumo"):
                     font-size: 0.9em;
                     position: absolute;
                     z-index: 1;
-                    top: 150%;      /* Move ligeiramente para cima */
-                    left: -120%;      /* Mover para a direita */
+                    top: 150%;
+                    left: -120%;
                 }
                 .tooltip:hover .tooltiptext {
                     visibility: visible;
@@ -1259,9 +1266,10 @@ with st.form("form_textos_resumo"):
                 }
                 </style>
                 """
-
                 st.markdown(custom_css, unsafe_allow_html=True)
-                html_table = df_viz.to_html(index=False, escape=False)
+
+                # Renderiza a tabela via Styler
+                html_table = df_style.to_html(index=False, escape=False)
                 st.markdown(f"<div class='table-container'>{html_table}</div>", unsafe_allow_html=True)
 
                 st.info("Visualização atual. Marque 'Ativar Modo de Edição' para alterar valores nos eixos.")
@@ -1272,8 +1280,7 @@ with st.form("form_textos_resumo"):
             else:
                 st.warning("Modo de Edição: Ajuste valores, clique em 'Calcular Saldo' ou 'Salvar Distribuição'.")
 
-                df_edit = df_all.copy()  # dados do DB
-                # Vamos descobrir as colunas de eixos no DB
+                df_edit = df_all.copy()
                 col_eixos_db = [c for c in df_edit.columns if c not in COL_PADRAO]
 
                 # Eixos do session_state
@@ -1287,16 +1294,13 @@ with st.form("form_textos_resumo"):
                     if c_eixo not in df_edit.columns:
                         df_edit[c_eixo] = 0.0
 
-                # Garante colunas fixas
                 col_fixas = ["id", "Unidade de Conservação", "TetoTotalDisponivel", "A Distribuir"]
                 col_fixas = [c for c in col_fixas if c in df_edit.columns]
 
                 cols_editor = col_fixas + col_eixos_all
-
-                # Reseta índice
                 df_edit = df_edit[cols_editor].reset_index(drop=True)
 
-                # Configura column_config
+                # st.data_editor config
                 column_config = {}
                 for c in cols_editor:
                     if c == "id":
@@ -1311,24 +1315,18 @@ with st.form("form_textos_resumo"):
                         # Eixo
                         column_config[c] = st.column_config.NumberColumn(label=c, format="accounting")
 
-                
-                # verifica os eixos selecionados que estão armazenados no session_state
-                # então filtra o DataFrame para mostrar somente os eixos que estão selecionados
+                # Se o usuário selecionou eixos específicos, filtra
                 if col_eixos_sess:
                     df_edit = df_edit[[c for c in df_edit.columns if c in col_eixos_sess or c in col_fixas]]
                 else:
-                    # Se não houver eixos selecionados, mostra apenas as colunas fixas
-                    df_edit = df_edit[col_fixas] 
+                    df_edit = df_edit[col_fixas]
 
-                               
-
-                # filtra somente linhas com teto total disponível maior que 0
-                df_edit = df_edit[df_edit["TetoTotalDisponivel"] > 0]
+                # Filtra TetoTotalDisponivel > 0
+                if "TetoTotalDisponivel" in df_edit.columns:
+                    df_edit = df_edit[df_edit["TetoTotalDisponivel"] > 0]
                 if df_edit.empty:
                     st.warning("Nenhuma UC disponível com teto total maior que 0.")
                     return
-                
-
 
                 edited_df = st.data_editor(
                     df_edit,
@@ -1343,10 +1341,8 @@ with st.form("form_textos_resumo"):
                 # Botão SALVAR
                 with col1:
                     if st.button("Salvar Distribuição de Recursos"):
-                        # 1) Salvar no DB (eixos + A Distribuir)
                         salvar_no_banco(edited_df, col_eixos_all)
                         st.success("Distribuição salva! Retornando à visualização...")
-                        # 2) Sair do modo edição
                         st.session_state["edit_mode_uc_flag"] = False
                         time.sleep(1)
                         st.rerun()
@@ -1354,21 +1350,17 @@ with st.form("form_textos_resumo"):
                 # Botão CALCULAR SALDO
                 with col2:
                     if st.button("Calcular Saldo"):
-                        # Precisamos recalcular local e também salvar no DB
                         df_calc = edited_df.copy()
                         df_calc = recalcular_saldo(df_calc)
                         salvar_no_banco(df_calc, col_eixos_all)
-
                         st.success("Saldo recalculado e salvo no banco!")
                         time.sleep(1)
                         st.rerun()
 
-    # ---------------------------------------------------------
-    # chama a função para exibir a aba de distribuição de recursos
-    # ---------------------------------------------------------
+    #
+
     aba_uc_distribuicao(tab_uc)
-
-
+    #
 
 
 
