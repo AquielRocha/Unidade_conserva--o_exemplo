@@ -992,8 +992,12 @@ with st.form("form_textos_resumo"):
             if "show_tetos_flag" not in st.session_state:
                 st.session_state["show_tetos_flag"] = False
 
+
+
+            
+
             # Checkbox de modo edição
-            edit_mode = st.checkbox(
+            edit_mode = st.toggle(
                 "Ativar Modo de Edição para Distribuição",
                 value=st.session_state["edit_mode_uc_flag"],
                 key="modo_edicao_uc"
@@ -1025,11 +1029,11 @@ with st.form("form_textos_resumo"):
             # ---------------------------------------------------
             if not st.session_state["edit_mode_uc_flag"]:
                 # Checkboxes de exibição
-                st.session_state["show_eixos_flag"] = st.checkbox(
+                st.session_state["show_eixos_flag"] = st.toggle(
                     "Exibir Eixos Temáticos?",
                     value=st.session_state["show_eixos_flag"]
                 )
-                st.session_state["show_tetos_flag"] = st.checkbox(
+                st.session_state["show_tetos_flag"] = st.toggle(
                     "Exibir Tetos?",
                     value=st.session_state["show_tetos_flag"]
                 )
