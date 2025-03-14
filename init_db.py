@@ -28,7 +28,7 @@ def init_database():
     # ----------------------------------------------------------------------------
     # 1) TABELA DE USUÁRIOS
     # ----------------------------------------------------------------------------
-    cursor.execute(""" DROP TABLE IF EXISTS tf_usuarios """)
+    # cursor.execute(""" DROP TABLE IF EXISTS tf_usuarios """)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS tf_usuarios (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -54,12 +54,22 @@ def init_database():
 
 
 
-
     # Cria (ou ignora) um usuário com perfil cocam
     cursor.execute("""
-        INSERT OR IGNORE INTO tf_usuarios (cpf, nome_completo, email, setor_demandante, perfil)
+        INSERT OR REPLACE INTO tf_usuarios (cpf, nome_completo, email, setor_demandante, perfil)
         VALUES (?, ?, ?, ?, ?)
     """, ("08672224760", "Luiz Felipe de Luca de Souza", "luiz-felipe.souza@icmbio.gov.br ", "DIMAN", "comum"))
+
+
+
+    # Cria (ou ignora) um usuário com perfil cocam (se o usuário não existir, ele será criado)
+    cursor.execute("""
+        INSERT OR REPLACE INTO tf_usuarios (cpf, nome_completo, email, setor_demandante, perfil)
+        VALUES (?, ?, ?, ?, ?)
+    """, ("78789710134", "Renata Cesário", "renata.gomes@icmbio.gov.br", "DIMAN", "comum"))
+
+
+
 
 
 
@@ -309,6 +319,23 @@ def init_database():
             "TetoPrevisto 2027"
         ]
     ].fillna(0)
+
+
+    # se houverem linhas com unidade e ação de aplicação iguais, mas com diferentes tetos,
+    # então, agrupe por unidade e ação de aplicação, somando os tetos
+    df_distribuicao = df_distribuicao.groupby(
+        ["DEMANDANTE (diretoria)", "Nome da Proposta/Iniciativa Estruturante", "AÇÃO DE APLICAÇÃO", "Unidade de Conservação", "CNUC"],
+        as_index=False
+    ).agg({
+        "TetoSaldo disponível": "sum",
+        "TetoPrevisto 2025": "sum",
+        "TetoPrevisto 2026": "sum",
+        "TetoPrevisto 2027": "sum",
+        "TetoTotalDisponivel": "sum"
+    })
+    
+
+
 
     # Popula a nova tabela tf_distribuicao_elegiveis
     df_distribuicao.to_sql("tf_distribuicao_elegiveis", conn, if_exists="append", index=False)
