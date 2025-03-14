@@ -1155,6 +1155,9 @@ with st.form("form_textos_resumo"):
                         col_list = ["info"] + col_list
                 df_viz = df_viz[col_list]
 
+                # exclui coluna info do dataframe para não exibir na tabela
+                df_viz.drop(columns=["info"], inplace=True)
+
                 # Linha de total
                 # Usar df_all (sem formatação)
                 df_all_num = df_all.copy()

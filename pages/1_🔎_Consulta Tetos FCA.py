@@ -2,141 +2,216 @@ import streamlit as st
 import pandas as pd
 import sqlite3
 import os
+import numpy as np
 
-# Ajuste o caminho do banco conforme a sua necessidade
-DB_PATH = "database/app_data.db"
+DB_PATH = "database/app_data.db"  # Ajuste o caminho do seu DB
 
-# Verifica se o usuário está logado
+# 1) Verificação de Login
 if "usuario_logado" not in st.session_state or not st.session_state["usuario_logado"]:
     st.warning("🔒 Acesso negado! Faça login na página principal para acessar esta seção.")
     st.stop()
 
-# Verifica se o perfil do usuário é admin (se for necessário restringir)
+# 2) Verificação de Perfil (ex: admin)
 if st.session_state["perfil"] != "admin":
     st.warning("🔒 Acesso negado! Você não tem permissão para acessar esta seção.")
     st.stop()
 
+# 3) Configuração de Página
 st.set_page_config(
-    page_title="Consultar Tetos",
+    page_title="Consulta Elaborada de Tetos",
     page_icon="♾️",
     layout="wide"
 )
 
-st.title("Consulta de Tetos e Distribuição")
+st.title("Consulta Elaborada de Tetos e Distribuição")
 
+# 4) Função para carregar dados
 @st.cache_data
 def load_tetos_from_db() -> pd.DataFrame:
-    """Carrega dados da tabela tf_distribuicao_elegiveis."""
+    """Carrega dados da tabela tf_distribuicao_elegiveis do banco."""
     if not os.path.exists(DB_PATH):
-        return pd.DataFrame()  # Se não existe o arquivo de DB
+        return pd.DataFrame()
     conn = sqlite3.connect(DB_PATH)
     df = pd.read_sql_query("SELECT * FROM tf_distribuicao_elegiveis", conn)
     conn.close()
     return df
 
-# 1) Carregar dados
+# 5) Carregar DataFrame
 df_tetos = load_tetos_from_db()
-
 if df_tetos.empty:
-    st.warning("Nenhum dado encontrado na tabela 'tf_distribuicao_elegiveis'. Verifique se o banco foi inicializado.")
+    st.warning("Nenhum dado encontrado na tabela 'tf_distribuicao_elegiveis'.")
     st.stop()
 
-# 2) Sidebar com Filtros
+# (Opcional) Renomear algumas colunas para ficar mais legível
+rename_map = {
+    "Unidade de Conservação": "UnidadeConservacao",  # Evita espaço no nome
+    "TetoSaldo disponível":   "TetoSaldoDisponivel",
+    "TetoPrevisto 2025":      "TetoPrevisto2025",
+    "TetoPrevisto 2026":      "TetoPrevisto2026",
+    "TetoPrevisto 2027":      "TetoPrevisto2027",
+    "TetoTotalDisponivel":    "TetoTotalDisponivel",
+    "A Distribuir":           "SaldoADistribuir",
+    # etc., se houver mais colunas
+}
+df_tetos.rename(columns=rename_map, inplace=True)
+
+# 6) Barra Lateral (SideBar) - Filtros
 st.sidebar.header("Filtros")
 
-# Filtro por id_iniciativa (se existir essa coluna)
+# a) Filtro Iniciativa
 lista_iniciativas = sorted(df_tetos["id_iniciativa"].dropna().unique())
-filtro_iniciativa = st.sidebar.selectbox("Selecione a Iniciativa (id_iniciativa)", 
-    options=["Todos"] + list(map(str, lista_iniciativas)), 
-    index=0)
-
+filtro_iniciativa = st.sidebar.selectbox(
+    "Selecione a Iniciativa",
+    options=["Todos"] + list(map(str, lista_iniciativas))
+)
 if filtro_iniciativa != "Todos":
-    # Toma cuidado se "id_iniciativa" for numérico ou string
-    # Se for numérico, converta de volta:
+    # se for numérico, converta
     try:
-        val = int(filtro_iniciativa)
-        df_tetos = df_tetos[df_tetos["id_iniciativa"] == val]
+        val_inic = int(filtro_iniciativa)
+        df_tetos = df_tetos[df_tetos["id_iniciativa"] == val_inic]
     except:
-        # Ou se for string
+        # se for string
         df_tetos = df_tetos[df_tetos["id_iniciativa"].astype(str) == filtro_iniciativa]
 
-# Filtro por Unidade de Conservação
-lista_ucs = sorted(df_tetos["Unidade de Conservação"].dropna().unique())
-filtro_uc = st.sidebar.selectbox("Unidade de Conservação", ["Todas"] + lista_ucs, index=0)
-if filtro_uc != "Todas":
-    df_tetos = df_tetos[df_tetos["Unidade de Conservação"] == filtro_uc]
+# b) Filtro UC
+if "UnidadeConservacao" in df_tetos.columns:
+    lista_uc = sorted(df_tetos["UnidadeConservacao"].dropna().unique())
+    filtro_uc = st.sidebar.selectbox("Unidade de Conservação", ["Todas"] + list(lista_uc))
+    if filtro_uc != "Todas":
+        df_tetos = df_tetos[df_tetos["UnidadeConservacao"] == filtro_uc]
 
-# Se após filtros ficou vazio, avisamos
+# c) (Opcional) Filtrar só tetos > 0
+filtro_somente_positivos = st.sidebar.checkbox("Mostrar somente TetoTotalDisponivel > 0?", value=False)
+if filtro_somente_positivos and "TetoTotalDisponivel" in df_tetos.columns:
+    df_tetos = df_tetos[df_tetos["TetoTotalDisponivel"] > 0]
+
+# d) Caso deseje filtrar por TetoPrevisto2025, etc., pode adicionar mais.
+
 if df_tetos.empty:
     st.warning("Nenhum registro encontrado com os filtros selecionados.")
     st.stop()
 
-# 3) Exibir Estatísticas Simples (opcional)
-st.subheader("Estatísticas Gerais")
-col1, col2 = st.columns(2)
+# 7) Estatísticas/Métricas Globais
+st.subheader("Estatísticas Globais")
 
-# Exemplo: quantas UCs e quantas iniciativas existem após os filtros
-col1.metric(
-    label="Total de Registros",
-    value=len(df_tetos)
-)
-num_ucs = df_tetos["Unidade de Conservação"].nunique()
-col2.metric(
-    label="Total de UCs",
-    value=num_ucs
-)
+col1, col2, col3, col4, col5 = st.columns(5)
 
-# 4) Exibir Tabela com colunas principais
-# Se quiser renomear colunas para exibição
-rename_map = {
-    "Unidade de Conservação": "Unidade de Conservação",
-    "TetoSaldo disponível":   "Teto Saldo Disponível",
-    "TetoPrevisto 2025":      "Teto Previsto 2025",
-    "TetoPrevisto 2026":      "Teto Previsto 2026",
-    "TetoPrevisto 2027":      "Teto Previsto 2027",
-    "TetoTotalDisponivel":    "Teto Total Disponível",
-    "A Distribuir":           "Saldo a Distribuir",
-    "CNUC":                   "CNUC",  # se existir
-}
+total_registros = len(df_tetos)
+col1.metric("Total de Registros", total_registros)
 
-df_viz = df_tetos.copy()
+# Quantidade de UCs
+if "UnidadeConservacao" in df_tetos.columns:
+    total_ucs = df_tetos["UnidadeConservacao"].nunique()
+    col2.metric("Total de UCs", total_ucs)
 
-# Ajustamos o "No" manualmente, se quiser um índice visual
-df_viz.reset_index(drop=True, inplace=True)
-df_viz.insert(0, "No", range(1, len(df_viz)+1))
+# Soma do TetoTotalDisponivel
+if "TetoTotalDisponivel" in df_tetos.columns:
+    soma_teto = df_tetos["TetoTotalDisponivel"].fillna(0).sum()
+    col3.metric("Soma Teto Total", f"R$ {soma_teto:,.2f}")
 
-df_viz.rename(columns=rename_map, inplace=True)
+# Soma do Saldo a Distribuir
+if "SaldoADistribuir" in df_tetos.columns:
+    soma_saldo = df_tetos["SaldoADistribuir"].fillna(0).sum()
+    col4.metric("Soma do Saldo a Distribuir", f"R$ {soma_saldo:,.2f}")
 
-# 4.1) Selecionar colunas que desejamos exibir
-colunas_para_exibir = [
-    "No", 
-    "Unidade de Conservação", 
-    "Teto Total Disponível",
-    "Saldo a Distribuir",
-    "Teto Saldo Disponível", 
-    "Teto Previsto 2025", 
-    "Teto Previsto 2026", 
-    "Teto Previsto 2027"
-]
-colunas_existentes = [c for c in colunas_para_exibir if c in df_viz.columns]
-df_viz = df_viz[colunas_existentes]
+# Uma métrica extra, como TetoSaldoDisponivel
+if "TetoSaldoDisponivel" in df_tetos.columns:
+    soma_saldoDisp = df_tetos["TetoSaldoDisponivel"].fillna(0).sum()
+    col5.metric("Teto Saldo Disponível (Soma)", f"R$ {soma_saldoDisp:,.2f}")
 
-# 5) Formatar colunas monetárias
-def fmt_moeda(valor):
+st.divider()
+
+# 8) Expanders com Análises Agrupadas
+st.subheader("Análises Agrupadas")
+
+def fmt_money(valor):
+    """Função de formatação monetária."""
     try:
         return f"R$ {float(valor):,.2f}"
     except:
         return "R$ 0,00"
 
-for col in df_viz.columns:
-    if col not in ["No", "Unidade de Conservação", "CNUC"]:
-        df_viz[col] = df_viz[col].apply(fmt_moeda)
+def agrupar_e_exibir(coluna_grupo):
+    """Agrupa a df_tetos pela coluna_grupo e mostra soma das colunas monetárias."""
+    if coluna_grupo not in df_tetos.columns:
+        st.warning(f"Coluna {coluna_grupo} não existe no DataFrame.")
+        return
 
-st.subheader("Tabela de Tetos")
-st.dataframe(df_viz, use_container_width=True)
+    # Definimos colunas monetárias que queremos somar
+    col_monetarias = []
+    for c in ["TetoSaldoDisponivel", "TetoPrevisto2025", "TetoPrevisto2026", 
+              "TetoPrevisto2027", "TetoTotalDisponivel", "SaldoADistribuir"]:
+        if c in df_tetos.columns:
+            col_monetarias.append(c)
 
-# 6) Caso deseje uma “exportação” ou algo adicional, pode colocar
-csv_data = df_tetos.to_csv(index=False).encode("utf-8")
+    ag_dict = {}
+    for c in col_monetarias:
+        ag_dict[c] = "sum"
+
+    df_ag = df_tetos.groupby(coluna_grupo).agg(ag_dict).reset_index()
+    # Adiciona linha "Total Geral"
+    linha_total = {}
+    for c in df_ag.columns:
+        if c == coluna_grupo:
+            linha_total[c] = "Total Geral"
+        else:
+            linha_total[c] = df_ag[c].sum()
+    df_ag.loc[len(df_ag)] = linha_total
+
+    # Formata
+    for c in col_monetarias:
+        df_ag[c] = df_ag[c].apply(fmt_money)
+
+    st.dataframe(df_ag, use_container_width=True)
+
+# Exemplo de alguns expanders
+with st.expander("Agrupado por Iniciativa (id_iniciativa)", expanded=False):
+    if "id_iniciativa" in df_tetos.columns:
+        agrupar_e_exibir("id_iniciativa")
+    else:
+        st.info("Coluna 'id_iniciativa' não disponível.")
+
+with st.expander("Agrupado por UC (UnidadeConservacao)", expanded=False):
+    if "UnidadeConservacao" in df_tetos.columns:
+        agrupar_e_exibir("UnidadeConservacao")
+    else:
+        st.info("Coluna 'UnidadeConservacao' não disponível.")
+
+with st.expander("Agrupado por CNUC", expanded=False):
+    if "CNUC" in df_tetos.columns:
+        agrupar_e_exibir("CNUC")
+    else:
+        st.info("Coluna 'CNUC' não disponível.")
+
+# etc... você pode adicionar mais expanders conforme suas colunas de interesse
+
+st.divider()
+
+# 9) Exibição Detalhada da Tabela (pós-filtros)
+st.subheader("Tabela Detalhada (pós-filtros)")
+
+# Remonta colunas na ordem que desejar
+col_order = ["id", "id_iniciativa", "UnidadeConservacao", 
+             "TetoSaldoDisponivel", "TetoPrevisto2025", 
+             "TetoPrevisto2026", "TetoPrevisto2027",
+             "TetoTotalDisponivel", "SaldoADistribuir", "CNUC"]
+
+col_order = [c for c in col_order if c in df_tetos.columns]
+df_show = df_tetos[col_order].copy().reset_index(drop=True)
+
+# Insere coluna "No" manual
+df_show.insert(0, "No", range(1, len(df_show)+1))
+
+# Formata monetariamente
+for c_moeda in ["TetoSaldoDisponivel", "TetoPrevisto2025", "TetoPrevisto2026",
+                "TetoPrevisto2027", "TetoTotalDisponivel", "SaldoADistribuir"]:
+    if c_moeda in df_show.columns:
+        df_show[c_moeda] = df_show[c_moeda].apply(fmt_money)
+
+st.dataframe(df_show, use_container_width=True)
+
+# 10) Botão de Download
+csv_data = df_show.to_csv(index=False).encode("utf-8")
 st.download_button(
     label="Baixar CSV",
     data=csv_data,
@@ -144,4 +219,4 @@ st.download_button(
     mime="text/csv"
 )
 
-st.info("Página de consulta de tetos concluída.")
+st.success("Consulta de Tetos concluída!")
