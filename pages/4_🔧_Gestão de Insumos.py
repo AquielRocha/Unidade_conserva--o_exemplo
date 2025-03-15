@@ -195,7 +195,7 @@ with col_botaoFiltro:
 
 
 with st.form(key="form_sugestao_texto_livre"):
-    elemento_text = st.text_input("Elemento de Despesa (texto livre)").strip()
+    elemento_text = st.selectbox("Elemento de Despesa:", options=[""] + todos_elementos)
     espec_text = st.text_input("Especificação Padrão (texto livre)").strip()
     desc_insumo_text = st.text_input("Descrição do Insumo (texto livre)").strip()
     preco_input = st.number_input("Preço de Referência (R$)", min_value=0.0, step=0.5, value=0.0)
@@ -248,7 +248,7 @@ else:
         # pois tem opções definidas.
         col_config_sug = {
             "id": st.column_config.TextColumn("ID", disabled=True),
-            "elemento_despesa": st.column_config.TextColumn("Elemento de Despesa", disabled=False),
+            "elemento_despesa": st.column_config.TextColumn("Elemento de Despesa", disabled=True),
             "especificacao_padrao": st.column_config.TextColumn("Especificação Padrão", disabled=False),
             "descricao_insumo": st.column_config.TextColumn("Descrição do Insumo", disabled=False),
             "preco_referencia": st.column_config.NumberColumn(

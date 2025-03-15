@@ -69,7 +69,12 @@ def init_database():
     """, ("78789710134", "Renata Cesário", "renata.gomes@icmbio.gov.br", "DIMAN", "comum"))
 
 
-
+    # Cria (ou ignora) um usuário com perfil cocam (se o usuário não existir, ele será criado)
+    # 02705050167
+    cursor.execute("""
+        INSERT OR REPLACE INTO tf_usuarios (cpf, nome_completo, email, setor_demandante, perfil)
+        VALUES (?, ?, ?, ?, ?)
+    """, ("02705050167", "Pedro Henrique Pereira Costa", "pedro.costa@icmbio.gov.br", "DIMAN", "comum"))
 
 
 
@@ -607,6 +612,25 @@ def init_database():
 
         # Renomeia "valor_referencia" -> "preco_referencia"
         df_insumos.rename(columns={"valor_referencia": "preco_referencia"}, inplace=True)
+
+        # Adiciona um registro de elemento de despesa para "Bens" e um para "Serviços"
+        df_bens = pd.DataFrame({
+            "elemento_despesa": ["Bens"],
+            "especificacao_padrao": [""],
+            "descricao_insumo": [""],
+            "especificacao_tecnica": [""],
+            "preco_referencia": [0.0]
+        })
+        df_servicos = pd.DataFrame({
+            "elemento_despesa": ["Serviços"],
+            "especificacao_padrao": [""],
+            "descricao_insumo": [""],
+            "especificacao_tecnica": [""],
+            "preco_referencia": [0.0]
+        })
+
+        # Concatena os DataFrames
+        df_insumos = pd.concat([df_insumos, df_bens, df_servicos], ignore_index=True)
 
         # Insere no banco (append)
         df_insumos.to_sql("td_insumos", conn, if_exists="append", index=False)
