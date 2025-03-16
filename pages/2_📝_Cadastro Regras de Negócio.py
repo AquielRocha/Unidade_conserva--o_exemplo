@@ -1134,11 +1134,14 @@ with st.form("form_textos_resumo"):
             with col_sup1:
                 st.subheader("Alocação de Recursos por Eixo Temático")
 
+                
+
                 # 1) Toggle de edição
                 edit_mode = st.toggle(
-                    "Ativar Modo de Edição para Distribuição",
+                    "---⚠️--- **Ativar Modo de Edição** ---",
                     value=st.session_state["edit_mode_uc_flag"],
-                    key="modo_edicao_uc"
+                    key="modo_edicao_uc",
+                    help="Clique para ativar ou desativar o modo de edição."
                 )
                 if edit_mode != st.session_state["edit_mode_uc_flag"]:
                     st.session_state["edit_mode_uc_flag"] = edit_mode
@@ -1159,6 +1162,12 @@ with st.form("form_textos_resumo"):
                 st.warning("Nenhuma UC disponível para esta iniciativa.")
                 return
 
+            # col_warning, col_info = st.columns([10, 7])
+            # with col_warning:
+            #     st.info("**Atenção:** O modo de edição permite alterar a distribuição de recursos por eixo temático. \n\n **Após editar**, clique no botão **'Salvar Distribuição'** para aplicar as alterações.") 
+            # with col_info:
+            #     st.info("**Ação de Aplicação:** Implementação da UC.")
+            
             # ---------------------------------------------------
             # MODO VISUALIZAÇÃO
             # ---------------------------------------------------
@@ -1416,7 +1425,7 @@ with st.form("form_textos_resumo"):
                 html_table = df_style.to_html(index=False, escape=False)
                 st.markdown(f"<div class='table-container'>{html_table}</div>", unsafe_allow_html=True)
 
-                st.info("Visualização atual. Marque 'Ativar Modo de Edição' para alterar valores nos eixos.")
+               
 
             # ---------------------------------------------------
             # MODO EDIÇÃO
@@ -1484,7 +1493,7 @@ with st.form("form_textos_resumo"):
 
                 # Botão SALVAR
                 with col1:
-                    if st.button("Salvar Distribuição de Recursos", type="primary"):
+                    if st.button("Salvar Distribuição de Recursos", type="primary", use_container_width=True):
                         # 1) Salvar no DB (tf_distribuicao_elegiveis)
                         salvar_no_banco(edited_df, col_eixos_all)
 
