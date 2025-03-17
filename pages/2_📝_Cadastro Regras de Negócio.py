@@ -1038,6 +1038,8 @@ with st.form("form_textos_resumo"):
 
         conn.commit()
         conn.close()
+
+       
 # -----------------------------------------------------------------------------
     def recalcular_saldo(df: pd.DataFrame):
         """Recalcula 'A Distribuir' = TetoTotalDisponivel - soma(eixos). Retorna DataFrame atualizado."""
@@ -1568,7 +1570,7 @@ with st.form("form_textos_resumo"):
                         st.rerun()
 
 
-                
+     
 
 
 
@@ -1618,9 +1620,10 @@ with st.form("form_textos_resumo"):
     # 7) FORMAS DE CONTRATAÇÃO - Múltiplas Entradas
     # -------------------------------------------
 
-    # -------------------------------------------
+
+    # ---------------------------------------------
     # 7) FORMAS DE CONTRATAÇÃO - Múltiplas Entradas
-    # -------------------------------------------
+    # ---------------------------------------------
     with tab_forma_contratacao:
         st.subheader("Formas de Contratação")
 
@@ -1632,9 +1635,9 @@ with st.form("form_textos_resumo"):
             st.session_state["edit_mode"] = False
             st.session_state["edit_forma"] = None
             st.session_state["edit_index"] = None
-            st.rerun()  # ou st.rerun()
+            st.rerun()
 
-        # 1) Garante chaves de edição no session_state
+        # Garante chaves para edição
         if "edit_mode" not in st.session_state:
             st.session_state["edit_mode"] = False
         if "edit_forma" not in st.session_state:
@@ -1642,13 +1645,12 @@ with st.form("form_textos_resumo"):
         if "edit_index" not in st.session_state:
             st.session_state["edit_index"] = None
 
-        # 2) Carrega do BD se ainda não carregamos para esta iniciativa
+        # Se ainda não carregamos para esta iniciativa, buscamos no BD
         if ("formas_carregou_iniciativa" not in st.session_state
             or st.session_state["formas_carregou_iniciativa"] != nova_iniciativa):
 
             st.session_state["formas_carregou_iniciativa"] = nova_iniciativa
 
-            # Consulta os dados salvos no banco
             conn = sqlite3.connect(DB_PATH)
             row_formas = conn.execute("""
                 SELECT formas_contratacao
@@ -1668,15 +1670,14 @@ with st.form("form_textos_resumo"):
             else:
                 stored_formas = {}
 
-            # Estrutura padrão para armazenar múltiplas entradas
             st.session_state["formas_contratacao_detalhes"] = stored_formas.get("detalhes_por_forma", {})
-
-            # Zera modo de edição
             st.session_state["edit_mode"] = False
             st.session_state["edit_forma"] = None
             st.session_state["edit_index"] = None
 
-        # 3) Data Editor para seleção de Formas de Contratação
+        # -------------------------------------------------
+        # 1) Data Editor para seleção de Formas de Contratação
+        # -------------------------------------------------
         with st.form("form_formas_contratacao"):
             df_default = pd.DataFrame({
                 "Forma de Contratação": [
@@ -1689,7 +1690,7 @@ with st.form("form_textos_resumo"):
             })
 
             df_editor = st.data_editor(
-                df_default if "df_formas_contratacao" not in st.session_state 
+                df_default if "df_formas_contratacao" not in st.session_state
                         else st.session_state["df_formas_contratacao"],
                 column_config={
                     "Forma de Contratação": st.column_config.TextColumn(disabled=True),
@@ -1702,320 +1703,454 @@ with st.form("form_textos_resumo"):
             st.session_state["df_formas_contratacao"] = df_editor.copy()
             selected_forms = df_editor.loc[df_editor["Selecionado"], "Forma de Contratação"].tolist()
 
-            if st.form_submit_button("Salvar Formas Selecionadas"):
+            if st.form_submit_button("**Confirmar Seleção** \n\n Habilitar formulários para detalhamento \n\n ---⬇️---", use_container_width=True):
                 st.success("Seleção registrada com sucesso!")
 
         st.divider()
 
-        # 4) Expanders para cada Forma selecionada
-        for forma in selected_forms:
-            with st.expander(f"📌 {forma}", expanded=False):
-                key_prefix = forma.replace(" ", "_").lower()
+        # -------------------------------------------------
+        # 2) Funções ESPECÍFICAS de cada Expander
+        # -------------------------------------------------
+        def expander_contrato_caixa():
+            """
+            Expander de Contrato Caixa:
+            - Inclusão/edição
+            - Lista de registros
+            """
+            with st.expander("📌 Contrato Caixa", expanded=False):
+                registros = st.session_state["formas_contratacao_detalhes"].setdefault("Contrato Caixa", [])
 
-                # Inicializa estrutura no session_state se ainda não existir
-                if forma not in st.session_state["formas_contratacao_detalhes"]:
-                    st.session_state["formas_contratacao_detalhes"][forma] = []
-
-                # Lista os registros já inseridos
-                registros = st.session_state["formas_contratacao_detalhes"][forma]
-
-                # Verifica se estamos editando UM registro *dessa forma*
+                # Verifica se estamos editando especificamente este "forma"
                 em_edicao_esta_forma = (
                     st.session_state["edit_mode"]
-                    and st.session_state["edit_forma"] == forma
+                    and st.session_state["edit_forma"] == "Contrato Caixa"
                     and st.session_state["edit_index"] is not None
                 )
 
-                # Se estamos em edição, pega o registro atual
                 if em_edicao_esta_forma:
+                    # Edição
                     i = st.session_state["edit_index"]
-                    if i < len(registros):
-                        reg_edit = registros[i]
-                    else:
-                        reg_edit = {}
+                    reg_edit = registros[i] if i < len(registros) else {}
 
-                    st.markdown("### Editar Registro Existente")
+                    st.markdown("### Editar Registro (Contrato Caixa)")
+                    nome = st.text_input("Contrato Caixa",
+                                        value=reg_edit.get("Contrato Caixa", ""))
+                    obs = st.text_area("Observação",
+                                    value=reg_edit.get("Observação", ""))
 
-                    if forma == "Contrato Caixa":
-                        novo_contrato = st.text_input(
-                            "Nome do Contrato Caixa",
-                            value=reg_edit.get("Contrato Caixa", "")
-                        )
-                        nova_obs = st.text_area(
-                            "Observação",
-                            value=reg_edit.get("Observação", "")
-                        )
+                    colA, colB = st.columns(2)
+                    if colA.button("Salvar Edição", type="primary"):
+                        registros[i] = {
+                            "Contrato Caixa": nome.strip(),
+                            "Observação": obs.strip()
+                        }
+                        st.session_state["formas_contratacao_detalhes"]["Contrato Caixa"] = registros
+                        limpar_edicao()
 
-                        if st.button("Salvar Edição", key=f"save_{key_prefix}"):
-                            registros[i] = {
-                                "Contrato Caixa": novo_contrato.strip(),
-                                "Observação": nova_obs.strip()
-                            }
-                            st.session_state["formas_contratacao_detalhes"][forma] = registros
-                            limpar_edicao()
-
-                        if st.button("Cancelar Edição", key=f"cancel_{key_prefix}"):
-                            limpar_edicao()
-
-                    elif forma == "Contrato ICMBio":
-                        contratos_icmbio_opcoes = [
-                            "Contrato ICMBio 001/2025",
-                            "Contrato ICMBio 002/2025",
-                            "Contrato ICMBio 003/2025",
-                        ]
-                        # Tenta achar índice
-                        try:
-                            idx_opcao = contratos_icmbio_opcoes.index(reg_edit.get("Contrato ICMBio", "")) 
-                        except:
-                            idx_opcao = 0
-
-                        contrato_escolhido = st.selectbox(
-                            "Quais contratos do ICMBio possuem os insumos/serviços?",
-                            contratos_icmbio_opcoes,
-                            index=idx_opcao
-                        )
-                        coord_gestora = st.radio(
-                            "A coordenação geral é gestora de algum desses contratos?",
-                            ["Sim", "Não"],
-                            index=["Sim", "Não"].index(reg_edit.get("Coordenação Gestora?", "Não"))
-                        )
-                        justificativa = st.text_area(
-                            "Justificativa para uso (em detrimento de contrato CAIXA)",
-                            value=reg_edit.get("Justificativa", "")
-                        )
-
-                        if st.button("Salvar Edição", key=f"save_{key_prefix}"):
-                            registros[i] = {
-                                "Contrato ICMBio": contrato_escolhido,
-                                "Coordenação Gestora?": coord_gestora,
-                                "Justificativa": justificativa.strip()
-                            }
-                            st.session_state["formas_contratacao_detalhes"][forma] = registros
-                            limpar_edicao()
-
-                        if st.button("Cancelar Edição", key=f"cancel_{key_prefix}"):
-                            limpar_edicao()
-
-                    elif forma == "Fundação de Apoio credenciada pelo ICMBio":
-                        existe_projeto = reg_edit.get("Existe Projeto CPPar?", "Não")
-                        if existe_projeto not in ["Sim", "Não"]:
-                            existe_projeto = "Não"
-
-                        existe_projeto_val = st.radio(
-                            "Já existe projeto aprovado pela CPPar relacionado a este tema?",
-                            ["Sim", "Não"],
-                            index=["Não", "Sim"].index(existe_projeto)
-                        )
-
-                        sei_projeto = reg_edit.get("SEI Projeto", "")
-                        sei_ata = reg_edit.get("SEI Ata", "")
-                        if existe_projeto_val == "Sim":
-                            sei_projeto = st.text_input("Número SEI do Projeto", value=sei_projeto)
-                            sei_ata = st.text_input("Número SEI da Ata/Decisão", value=sei_ata)
-
-                        in_concorda = reg_edit.get("Concorda com IN18/2018 e 12/2024?", "Não")
-                        if in_concorda not in ["Sim", "Não"]:
-                            in_concorda = "Não"
-
-                        in_concorda_val = st.radio(
-                            "A iniciativa está de acordo com a IN nº 18/2018 e 12/2024?",
-                            ["Sim", "Não"],
-                            index=["Não", "Sim"].index(in_concorda)
-                        )
-
-                        justificativa = st.text_area(
-                            "Justificativa",
-                            value=reg_edit.get("Justificativa", "")
-                        )
-
-                        if st.button("Salvar Edição", key=f"save_{key_prefix}"):
-                            novo_reg = {
-                                "Existe Projeto CPPar?": existe_projeto_val,
-                                "SEI Projeto": sei_projeto.strip() if existe_projeto_val == "Sim" else "",
-                                "SEI Ata": sei_ata.strip() if existe_projeto_val == "Sim" else "",
-                                "Concorda com IN18/2018 e 12/2024?": in_concorda_val,
-                                "Justificativa": justificativa.strip()
-                            }
-                            registros[i] = novo_reg
-                            st.session_state["formas_contratacao_detalhes"][forma] = registros
-                            limpar_edicao()
-
-                        if st.button("Cancelar Edição", key=f"cancel_{key_prefix}"):
-                            limpar_edicao()
-
-                    elif forma == "Fundação de Amparo à pesquisa":
-                        in_amparo = reg_edit.get("De acordo com normas?", "Não")
-                        if in_amparo not in ["Sim", "Não"]:
-                            in_amparo = "Não"
-                        in_amparo_val = st.radio(
-                            "A iniciativa está de acordo com as normas da fundação de amparo?",
-                            ["Sim", "Não"],
-                            index=["Não", "Sim"].index(in_amparo)
-                        )
-
-                        fundacoes_list = st.text_area(
-                            "Relacione as Fundações de Amparo visadas para parceria",
-                            value=reg_edit.get("Fundações Planejadas", "")
-                        )
-                        parcerias_obs = st.text_area(
-                            "Existem parcerias em andamento ou contato prévio?",
-                            value=reg_edit.get("Parcerias/Contato Prévio", "")
-                        )
-
-                        if st.button("Salvar Edição", key=f"save_{key_prefix}"):
-                            novo_reg = {
-                                "De acordo com normas?": in_amparo_val,
-                                "Fundações Planejadas": fundacoes_list.strip(),
-                                "Parcerias/Contato Prévio": parcerias_obs.strip()
-                            }
-                            registros[i] = novo_reg
-                            st.session_state["formas_contratacao_detalhes"][forma] = registros
-                            limpar_edicao()
-
-                        if st.button("Cancelar Edição", key=f"cancel_{key_prefix}"):
-                            limpar_edicao()
+                    if colB.button("Cancelar"):
+                        limpar_edicao()
 
                 else:
-                    # Formulário de NOVA inclusão (se não estamos editando)
-                    st.markdown("###### Incluir Novo Registro")
+                    # Inclusão
+                    st.markdown("###### Incluir Novo Registro (Contrato Caixa)")
+                    nome = st.text_input("Contrato Caixa")
+                    obs = st.text_area("Observação")
 
-                    if forma == "Contrato Caixa":
-                        novo_contrato = st.text_input("Nome do Contrato Caixa")
-                        nova_obs = st.text_area("Observação")
-
-                        if st.button("➕ Adicionar Contrato Caixa", key=f"add_{key_prefix}"):
-                            if novo_contrato.strip():
-                                registros.append({
-                                    "Contrato Caixa": novo_contrato.strip(),
-                                    "Observação": nova_obs.strip()
-                                })
-                                st.session_state["formas_contratacao_detalhes"][forma] = registros
-                                st.rerun()
-
-                    elif forma == "Contrato ICMBio":
-                        contratos_icmbio_opcoes = [
-                            "Contrato ICMBio 001/2025",
-                            "Contrato ICMBio 002/2025",
-                            "Contrato ICMBio 003/2025",
-                        ]
-                        contrato_escolhido = st.selectbox(
-                            "Quais contratos do ICMBio possuem os insumos/serviços?",
-                            contratos_icmbio_opcoes
-                        )
-                        coord_gestora = st.radio(
-                            "A coordenação geral é gestora de algum desses contratos?",
-                            ["Sim", "Não"]
-                        )
-                        justificativa = st.text_area("Justificativa para uso (em detrimento de contrato CAIXA)")
-
-                        if st.button("➕ Adicionar Contrato ICMBio", key=f"add_{key_prefix}"):
-                            if contrato_escolhido:
-                                registros.append({
-                                    "Contrato ICMBio": contrato_escolhido,
-                                    "Coordenação Gestora?": coord_gestora,
-                                    "Justificativa": justificativa.strip()
-                                })
-                                st.session_state["formas_contratacao_detalhes"][forma] = registros
-                                st.rerun()
-
-                    elif forma == "Fundação de Apoio credenciada pelo ICMBio":
-                        existe_projeto_val = st.radio(
-                            "Já existe projeto aprovado pela CPPar relacionado a este tema?",
-                            ["Sim", "Não"]
-                        )
-                        sei_projeto = ""
-                        sei_ata = ""
-                        if existe_projeto_val == "Sim":
-                            sei_projeto = st.text_input("Número SEI do Projeto")
-                            sei_ata = st.text_input("Número SEI da Ata/Decisão")
-
-                        in_concorda_val = st.radio(
-                            "A iniciativa está de acordo com a IN nº 18/2018 e 12/2024?",
-                            ["Sim", "Não"]
-                        )
-                        justificativa = st.text_area("Justificativa")
-
-                        if st.button("➕ Adicionar Fundação de Apoio", key=f"add_{key_prefix}"):
-                            novo_reg = {
-                                "Existe Projeto CPPar?": existe_projeto_val,
-                                "SEI Projeto": sei_projeto.strip() if existe_projeto_val == "Sim" else "",
-                                "SEI Ata": sei_ata.strip() if existe_projeto_val == "Sim" else "",
-                                "Concorda com IN18/2018 e 12/2024?": in_concorda_val,
-                                "Justificativa": justificativa.strip()
-                            }
-                            registros.append(novo_reg)
-                            st.session_state["formas_contratacao_detalhes"][forma] = registros
+                    if st.button("➕ Adicionar Contrato Caixa"):
+                        if nome.strip():
+                            registros.append({
+                                "Contrato Caixa": nome.strip(),
+                                "Observação": obs.strip()
+                            })
+                            st.session_state["formas_contratacao_detalhes"]["Contrato Caixa"] = registros
                             st.rerun()
 
-                    elif forma == "Fundação de Amparo à pesquisa":
-                        in_amparo_val = st.radio(
-                            "A iniciativa está de acordo com as normas da fundação de amparo?",
-                            ["Sim", "Não"]
-                        )
-                        fundacoes_list = st.text_area("Relacione as Fundações de Amparo visadas para parceria")
-                        parcerias_obs = st.text_area("Existem parcerias em andamento ou contato prévio?")
-
-                        if st.button("➕ Adicionar Fundação de Amparo", key=f"add_{key_prefix}"):
-                            novo_reg = {
-                                "De acordo com normas?": in_amparo_val,
-                                "Fundações Planejadas": fundacoes_list.strip(),
-                                "Parcerias/Contato Prévio": parcerias_obs.strip()
-                            }
-                            registros.append(novo_reg)
-                            st.session_state["formas_contratacao_detalhes"][forma] = registros
-                            st.rerun()
 
                 st.markdown("---")
-
-                # 4.1 - Exibir todos os registros dessa forma
+                # Lista de registros
                 if registros:
                     st.write("###### Registros Adicionados")
                     for i, reg in enumerate(registros):
-                        with st.container():
+                        col1, col2, col3 = st.columns([10, 1, 1])
+                        # Descrição do registro
+                        texto_campos = []
+                        for campo, valor in reg.items():
+                            texto_campos.append(f"**{campo}**: {valor}")
+                        col1.markdown(f"[{i+1}] " + "  |  ".join(texto_campos))
+                        
 
-                            col1, col2, col3 = st.columns([10, 2, 2])
+                        # Editar
+                        if col2.button("✏️", key=f"edit_caixa_{i}"):
+                            st.session_state["edit_mode"] = True
+                            st.session_state["edit_forma"] = "Contrato Caixa"
+                            st.session_state["edit_index"] = i
+                            st.rerun()
 
-                            if col1:
-                                # Exibe o registro como texto
-                                texto_campos = []
-                                for campo, valor in reg.items():
-                                    texto_campos.append(f"**{campo}**: {valor}")
-                                st.write(f"**[{i+1}]** " + " | ".join(texto_campos))
-
-                            
-                            # Botão de Editar
-                            if col2.button("✏️ Editar", key=f"editar_{key_prefix}_{i}", use_container_width=True):
-                                st.session_state["edit_mode"] = True
-                                st.session_state["edit_forma"] = forma
-                                st.session_state["edit_index"] = i
-                                st.rerun()
-
-                            # Botão de Remover
-                            if col3.button("❌ Remover", key=f"remover_{key_prefix}_{i}", use_container_width=True):
-                                del registros[i]
-                                st.session_state["formas_contratacao_detalhes"][forma] = registros
-                                st.rerun()
-
-                    st.markdown("----")
-
-        # 5) Botão para salvar tudo no banco
-        if st.button("💾 Salvar Informações de Contratação"):
-            formas_dict = {
-                "tabela_formas": st.session_state["df_formas_contratacao"].to_dict(orient="records"),
-                "detalhes_por_forma": st.session_state["formas_contratacao_detalhes"]
-            }
-            # Salva no banco
-            conn = sqlite3.connect(DB_PATH)
-            conn.execute("""
-                INSERT INTO tf_cadastro_regras_negocio (id_iniciativa, formas_contratacao, data_hora)
-                VALUES (?, ?, datetime('now'))
-            """, (nova_iniciativa, json.dumps(formas_dict)))
-            conn.commit()
-            conn.close()
-
-            st.success("✅ Formas de contratação salvas com sucesso!")
+                        # Remover
+                        if col3.button("❌", key=f"del_caixa_{i}"):
+                            del registros[i]
+                            st.session_state["formas_contratacao_detalhes"]["Contrato Caixa"] = registros
+                            st.rerun()
 
 
+
+        def expander_contrato_icmbio():
+            """
+            Expander de Contrato ICMBio:
+            """
+            with st.expander("📌 Contrato ICMBio", expanded=False):
+                registros = st.session_state["formas_contratacao_detalhes"].setdefault("Contrato ICMBio", [])
+
+                em_edicao_esta_forma = (
+                    st.session_state["edit_mode"]
+                    and st.session_state["edit_forma"] == "Contrato ICMBio"
+                    and st.session_state["edit_index"] is not None
+                )
+
+                if em_edicao_esta_forma:
+                    # Edição
+                    i = st.session_state["edit_index"]
+                    reg_edit = registros[i] if i < len(registros) else {}
+
+                    st.markdown("### Editar Registro (Contrato ICMBio)")
+
+                    # Agora usamos text_input para o campo de Contrato ICMBio
+                    contrato_icmbio = st.text_input(
+                        "Quais contratos do ICMBio possuem os insumos/serviços?",
+                        value=reg_edit.get("Contrato ICMBio", "")
+                    )
+                    coord_gestora = st.radio(
+                        "A coordenação geral é gestora de algum desses contratos?",
+                        ["Sim", "Não"],
+                        index=["Sim", "Não"].index(reg_edit.get("Coordenação Gestora?", "Não"))
+                    )
+                    justificativa = st.text_area(
+                        "Justificativa para uso (em detrimento de contrato CAIXA)",
+                        value=reg_edit.get("Justificativa", "")
+                    )
+
+                    colA, colB = st.columns(2)
+                    if colA.button("Salvar Edição", type="primary"):
+                        registros[i] = {
+                            "Contrato ICMBio": contrato_icmbio.strip(),
+                            "Coordenação Gestora?": coord_gestora,
+                            "Justificativa": justificativa.strip()
+                        }
+                        st.session_state["formas_contratacao_detalhes"]["Contrato ICMBio"] = registros
+                        limpar_edicao()
+
+                    if colB.button("Cancelar"):
+                        limpar_edicao()
+
+                else:
+                    # Inclusão
+                    st.markdown("###### Incluir Novo Registro (Contrato ICMBio)")
+
+                    # Também text_input para inclusão
+                    contrato_icmbio = st.text_input("Quais contratos do ICMBio possuem os insumos/serviços?")
+                    coord_gestora = st.radio(
+                        "A coordenação geral é gestora de algum desses contratos?",
+                        ["Sim", "Não"]
+                    )
+                    justificativa = st.text_area("Justificativa para uso (em detrimento de contrato CAIXA)")
+
+                    if st.button("➕ Adicionar Contrato ICMBio"):
+                        if contrato_icmbio.strip():
+                            registros.append({
+                                "Contrato ICMBio": contrato_icmbio.strip(),
+                                "Coordenação Gestora?": coord_gestora,
+                                "Justificativa": justificativa.strip()
+                            })
+                            st.session_state["formas_contratacao_detalhes"]["Contrato ICMBio"] = registros
+                            st.rerun()
+
+
+                st.markdown("---")
+                # Lista
+                if registros:
+                    st.write("###### Registros Adicionados")
+                    for i, reg in enumerate(registros):
+                        col1, col2, col3 = st.columns([10, 1, 1])
+                        texto_campos = []
+                        for campo, valor in reg.items():
+                            texto_campos.append(f"**{campo}**: {valor}")
+                        col1.markdown(f"[{i+1}] " + " | ".join(texto_campos))
+
+                        if col2.button("✏️", key=f"edit_icmbio_{i}"):
+                            st.session_state["edit_mode"] = True
+                            st.session_state["edit_forma"] = "Contrato ICMBio"
+                            st.session_state["edit_index"] = i
+                            st.rerun()
+
+                        if col3.button("❌", key=f"del_icmbio_{i}"):
+                            del registros[i]
+                            st.session_state["formas_contratacao_detalhes"]["Contrato ICMBio"] = registros
+                            st.rerun()
+
+
+        def expander_fundacao_apoio():
+            """
+            Expander de Fundação de Apoio credenciada pelo ICMBio
+            """
+            with st.expander("📌 Fundação de Apoio credenciada pelo ICMBio", expanded=False):
+                nome_forma = "Fundação de Apoio credenciada pelo ICMBio"
+                registros = st.session_state["formas_contratacao_detalhes"].setdefault(nome_forma, [])
+
+                em_edicao_esta_forma = (
+                    st.session_state["edit_mode"]
+                    and st.session_state["edit_forma"] == nome_forma
+                    and st.session_state["edit_index"] is not None
+                )
+
+                if em_edicao_esta_forma:
+                    # Edição
+                    i = st.session_state["edit_index"]
+                    reg_edit = registros[i] if i < len(registros) else {}
+
+                    st.markdown("### Editar Registro (Fundação de Apoio)")
+
+                    existe_projeto_val = reg_edit.get("Existe Projeto CPPar?", "Não")
+                    if existe_projeto_val not in ["Sim", "Não"]:
+                        existe_projeto_val = "Não"
+                    existe_projeto_val = st.radio(
+                        "Já existe projeto aprovado pela CPPar relacionado a este tema?",
+                        ["Sim", "Não"],
+                        index=["Não", "Sim"].index(existe_projeto_val)
+                    )
+
+                    sei_projeto = reg_edit.get("SEI Projeto", "")
+                    sei_ata = reg_edit.get("SEI Ata", "")
+                    if existe_projeto_val == "Sim":
+                        sei_projeto = st.text_input("Número SEI do Projeto", value=sei_projeto)
+                        sei_ata = st.text_input("Número SEI da Ata/Decisão", value=sei_ata)
+
+                    in_concorda_val = reg_edit.get("Concorda com IN18/2018 e 12/2024?", "Não")
+                    if in_concorda_val not in ["Sim", "Não"]:
+                        in_concorda_val = "Não"
+
+                    in_concorda_val = st.radio("A iniciativa está de acordo com a IN nº 18/2018 e 12/2024?",
+                                            ["Sim", "Não"],
+                                            index=["Não", "Sim"].index(in_concorda_val))
+                    justificativa = st.text_area("Justificativa",
+                                                value=reg_edit.get("Justificativa", ""))
+
+                    colA, colB = st.columns(2)
+                    if colA.button("Salvar Edição"):
+                        registros[i] = {
+                            "Existe Projeto CPPar?": existe_projeto_val,
+                            "SEI Projeto": sei_projeto.strip() if existe_projeto_val == "Sim" else "",
+                            "SEI Ata": sei_ata.strip() if existe_projeto_val == "Sim" else "",
+                            "Concorda com IN18/2018 e 12/2024?": in_concorda_val,
+                            "Justificativa": justificativa.strip()
+                        }
+                        st.session_state["formas_contratacao_detalhes"][nome_forma] = registros
+                        limpar_edicao()
+
+                    if colB.button("Cancelar"):
+                        limpar_edicao()
+
+                else:
+                    # Inclusão
+                    st.markdown("###### Incluir Novo Registro (Fundação de Apoio)")
+                    existe_projeto_val = st.radio(
+                        "Já existe projeto aprovado pela CPPar relacionado a este tema?",
+                        ["Sim", "Não"], index=1 # Default to "Não"
+                    )
+                    sei_projeto = ""
+                    sei_ata = ""
+                    if existe_projeto_val == "Sim":
+                        sei_projeto = st.text_input("Número SEI do Projeto")
+                        sei_ata = st.text_input("Número SEI da Ata/Decisão")
+
+                    in_concorda_val = st.radio(
+                        "A iniciativa está de acordo com a IN nº 18/2018 e 12/2024?",
+                        ["Sim", "Não"]
+                    )
+                    justificativa = st.text_area("Justificativa")
+
+                    if st.button("➕ Adicionar Fundação de Apoio"):
+                        novo_reg = {
+                            "Existe Projeto CPPar?": existe_projeto_val,
+                            "SEI Projeto": sei_projeto.strip() if existe_projeto_val == "Sim" else "",
+                            "SEI Ata": sei_ata.strip() if existe_projeto_val == "Sim" else "",
+                            "Concorda com IN18/2018 e 12/2024?": in_concorda_val,
+                            "Justificativa": justificativa.strip()
+                        }
+                        registros.append(novo_reg)
+                        st.session_state["formas_contratacao_detalhes"][nome_forma] = registros
+                        st.rerun()
+
+                st.markdown("---")
+                # Lista
+                if registros:
+                    st.write("###### Registros Adicionados")
+                    for i, reg in enumerate(registros):
+                        col1, col2, col3 = st.columns([10, 1, 1])
+                        texto_campos = []
+                        for campo, valor in reg.items():
+                            texto_campos.append(f"**{campo}**: {valor}")
+                        col1.markdown(f"[{i+1}] " + " | ".join(texto_campos))
+
+                        if col2.button("✏️", key=f"edit_fund_apoio_{i}"):
+                            st.session_state["edit_mode"] = True
+                            st.session_state["edit_forma"] = nome_forma
+                            st.session_state["edit_index"] = i
+                            st.rerun()
+
+                        if col3.button("❌", key=f"del_fund_apoio_{i}"):
+                            del registros[i]
+                            st.session_state["formas_contratacao_detalhes"][nome_forma] = registros
+                            st.rerun()
+
+
+        def expander_fundacao_amparo():
+            """
+            Expander de Fundação de Amparo à pesquisa
+            """
+            with st.expander("📌 Fundação de Amparo à pesquisa", expanded=False):
+                nome_forma = "Fundação de Amparo à pesquisa"
+                registros = st.session_state["formas_contratacao_detalhes"].setdefault(nome_forma, [])
+
+                em_edicao_esta_forma = (
+                    st.session_state["edit_mode"]
+                    and st.session_state["edit_forma"] == nome_forma
+                    and st.session_state["edit_index"] is not None
+                )
+
+                if em_edicao_esta_forma:
+                    # Edição
+                    i = st.session_state["edit_index"]
+                    reg_edit = registros[i] if i < len(registros) else {}
+
+                    st.markdown("### Editar Registro (Fundação de Amparo)")
+
+                    # 1) Pergunta inicial (Sim/Não)
+                    existe_contato_val = reg_edit.get("Existe Projeto/Parceria?", "Não")
+                    if existe_contato_val not in ["Sim", "Não"]:
+                        existe_contato_val = "Não"
+
+                    existe_contato_val = st.radio(
+                        "Existe projeto ou parceria em andamento ou contato prévio com a fundação para estabelecer novas parcerias?",
+                        ["Sim", "Não"],
+                        index=["Não", "Sim"].index(existe_contato_val)
+                    )
+
+                    # 2) Se "Sim", exibe campos extras
+                    nome_fundacao = ""
+                    observacoes = ""
+                    if existe_contato_val == "Sim":
+                        nome_fundacao = st.text_input(
+                            "Nome da Fundação de Amparo visada para a parceria",
+                            value=reg_edit.get("Nome da Fundação", "")
+                        )
+                        observacoes = st.text_area(
+                            "Outras observações ou informações relevantes",
+                            value=reg_edit.get("Observações", "")
+                        )
+
+                    colA, colB = st.columns(2)
+                    if colA.button("Salvar Edição"):
+                        # Montamos o dicionário a partir do que foi selecionado
+                        registros[i] = {
+                            "Existe Projeto/Parceria?": existe_contato_val,
+                            "Nome da Fundação": nome_fundacao.strip() if existe_contato_val == "Sim" else "",
+                            "Observações": observacoes.strip() if existe_contato_val == "Sim" else "",
+                        }
+                        st.session_state["formas_contratacao_detalhes"][nome_forma] = registros
+                        # Sai do modo de edição
+                        st.session_state["edit_mode"] = False
+                        st.session_state["edit_forma"] = None
+                        st.session_state["edit_index"] = None
+                        st.rerun()
+
+                    if colB.button("Cancelar"):
+                        st.session_state["edit_mode"] = False
+                        st.session_state["edit_forma"] = None
+                        st.session_state["edit_index"] = None
+                        st.rerun()
+
+                else:
+                    # Inclusão
+                    st.markdown("###### Incluir Novo Registro (Fundação de Amparo)")
+
+                    # 1) Pergunta inicial (Sim/Não)
+                    existe_contato_val = st.radio(
+                        "Existe projeto ou parceria em andamento ou contato prévio com a fundação para estabelecer novas parcerias?",
+                        ["Sim", "Não"], index=1 # Default to "Não"
+                    )
+
+                    # 2) Se "Sim", exibe campos extras
+                    nome_fundacao = ""
+                    observacoes = ""
+                    if existe_contato_val == "Sim":
+                        nome_fundacao = st.text_input("Nome da Fundação de Amparo visada para a parceria")
+                        observacoes = st.text_area("Outras observações ou informações relevantes")
+
+                    if st.button("➕ Adicionar Fundação de Amparo"):
+                        novo_reg = {
+                            "Existe Projeto/Parceria?": existe_contato_val,
+                            "Nome da Fundação": nome_fundacao.strip() if existe_contato_val == "Sim" else "",
+                            "Observações": observacoes.strip() if existe_contato_val == "Sim" else "",
+                        }
+                        registros.append(novo_reg)
+                        st.session_state["formas_contratacao_detalhes"][nome_forma] = registros
+                        st.rerun()
+
+                st.markdown("---")
+                # Lista de registros
+                if registros:
+                    st.write("###### Registros Adicionados")
+                    for i, reg in enumerate(registros):
+                        col1, col2, col3 = st.columns([10, 1, 1])
+                        texto_campos = []
+                        for campo, valor in reg.items():
+                            texto_campos.append(f"**{campo}**: {valor}")
+                        col1.markdown(f"[{i+1}] " + " | ".join(texto_campos))
+
+                        if col2.button("✏️", key=f"edit_fund_amparo_{i}"):
+                            st.session_state["edit_mode"] = True
+                            st.session_state["edit_forma"] = nome_forma
+                            st.session_state["edit_index"] = i
+                            st.rerun()
+
+                        if col3.button("❌", key=f"del_fund_amparo_{i}"):
+                            del registros[i]
+                            st.session_state["formas_contratacao_detalhes"][nome_forma] = registros
+                            st.rerun()
+
+
+        # -------------------------------------------------
+        # 3) Exibe os expanders de acordo com as formas selecionadas
+        # -------------------------------------------------
+        if "Contrato Caixa" in selected_forms:
+            expander_contrato_caixa()
+
+        if "Contrato ICMBio" in selected_forms:
+            expander_contrato_icmbio()
+
+        if "Fundação de Apoio credenciada pelo ICMBio" in selected_forms:
+            expander_fundacao_apoio()
+
+        if "Fundação de Amparo à pesquisa" in selected_forms:
+            expander_fundacao_amparo()
+
+        # # -------------------------------------------------
+        # # 4) Botão final para Salvar no banco
+        # # -------------------------------------------------
+        # if st.button("Salvar Informações de Contratação"):
+        #     formas_dict = {
+        #         "tabela_formas": st.session_state["df_formas_contratacao"].to_dict(orient="records"),
+        #         "detalhes_por_forma": st.session_state["formas_contratacao_detalhes"]
+        #     }
+        #     conn = sqlite3.connect(DB_PATH)
+        #     conn.execute("""
+        #         INSERT INTO tf_cadastro_regras_negocio (id_iniciativa, formas_contratacao, data_hora)
+        #         VALUES (?, ?, datetime('now'))
+        #     """, (nova_iniciativa, json.dumps(formas_dict)))
+        #     conn.commit()
+        #     conn.close()
+
+        #     st.success("✅ Formas de contratação salvas com sucesso!")
 
 
 
@@ -2083,7 +2218,18 @@ with st.form("form_textos_resumo"):
             # salvar unidades de conservação
             st.session_state["df_uc_editado"] = st.session_state["df_uc_editado"]
 
-            # st.success("Alterações salvas com sucesso!")
+
+            # salvar formas de contratação em session state
+            if "formas_contratacao_detalhes" not in st.session_state:
+                st.session_state["formas_contratacao_detalhes"] = {}
+            else:
+                st.session_state["formas_contratacao_detalhes"] = st.session_state["formas_contratacao_detalhes"]
+            # salvar formas de contratação em session state
+            if "df_formas_contratacao" not in st.session_state:
+                st.session_state["df_formas_contratacao"] = {}
+            else:
+                st.session_state["df_formas_contratacao"] = st.session_state["df_formas_contratacao"]
+            
 
         st.success("Alterações salvas com sucesso!")
 
@@ -2143,3 +2289,13 @@ st.divider()
 
 
 st.write(st.session_state)
+
+# exibir session state da tab distribuicao
+if "df_uc_editado" in st.session_state:
+    st.write("#### Dados da Distribuição de Recursos")
+    st.write(st.session_state["df_uc_editado"])
+
+# exibir session state da tab formas de contratacao
+if "formas_contratacao_detalhes" in st.session_state:
+    st.write("#### Dados das Formas de Contratação")
+    st.write(st.session_state["formas_contratacao_detalhes"])
