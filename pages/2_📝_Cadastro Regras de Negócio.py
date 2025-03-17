@@ -833,6 +833,10 @@ with st.form("form_textos_resumo"):
                     # Filtro de Elemento de Despesa
                     elementos_unicos = [
                         "Todos"] + sorted(df_insumos_all["elemento_despesa"].dropna().unique())
+                    # filtrar do dataframe o elemento "Bens"
+                    elementos_unicos = [el for el in elementos_unicos if el != "Bens"]
+                    # filtrar do dateframe o elemento "Serviços"
+                    elementos_unicos = [el for el in elementos_unicos if el != "Serviços"]
                     with col_filtro_elemento:
                         elemento_selecionado = st.selectbox(
                             "Selecione o Elemento de Despesa",
