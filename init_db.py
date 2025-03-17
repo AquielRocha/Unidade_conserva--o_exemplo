@@ -76,6 +76,14 @@ def init_database():
         VALUES (?, ?, ?, ?, ?)
     """, ("02705050167", "Pedro Henrique Pereira Costa", "pedro.costa@icmbio.gov.br", "DIMAN", "comum"))
 
+    
+    cursor.execute("""
+        INSERT OR REPLACE INTO tf_usuarios (cpf, nome_completo, email, setor_demandante, perfil)
+        VALUES (?, ?, ?, ?, ?)
+    """, ("07916703688", "Pedro Simões Soares", "pedro.soares@icmbio.gov.br", "DIMAN", "admin"))
+
+
+
 
 
     # Caminho do arquivo carregado
