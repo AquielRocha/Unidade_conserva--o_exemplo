@@ -959,10 +959,19 @@ if st.button("📄 Gerar Extrato Completo em PDF"):
             st.error(f"Ocorreu um erro ao gerar o PDF: {e}")
             st.stop()
 
+        current_datetime = datetime.now().strftime("%Y%m%d%H%M")
+        demandante = st.session_state.get("setor", "")
+        if not df_filtrado.empty:
+            id_iniciativa = df_filtrado.iloc[0].get("id_iniciativa", "")
+            usuario = df_filtrado.iloc[0].get("usuario", "")
+            pdf_file_name = f"{current_datetime}_{demandante}_{id_iniciativa}_{usuario}.pdf"
+        else:
+            pdf_file_name = "export.pdf"
+
         st.download_button(
             label="⬇️ Download do Extrato (PDF)",
             data=pdf_bytes,
-            file_name=f"extrato_iniciativa_{iniciativa_selecionada}.pdf",
+            file_name=pdf_file_name,
             mime="application/pdf"
         )
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
