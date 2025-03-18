@@ -422,6 +422,8 @@ def init_database():
     print("✅ Banco de dados atualizado com a nova tabela tf_distribuicao_elegiveis!")
 
 
+
+
     # ----------------------------------------------------------------------------
     # 7) TABELA PRINCIPAL DE REGRAS DE NEGÓCIO
     # ----------------------------------------------------------------------------

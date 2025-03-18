@@ -7,6 +7,7 @@ import sqlite3
 import json
 import pandas as pd
 import time as time
+import datetime
 
 import streamlit as st
 import sqlite3
@@ -133,6 +134,9 @@ def carregar_resumo_iniciativa(setor: str) -> pd.DataFrame | None:
     return df
 
 
+import pytz
+from datetime import datetime, timezone
+
 def salvar_dados_iniciativa(
     id_iniciativa: int,
     usuario: str,
@@ -145,50 +149,19 @@ def salvar_dados_iniciativa(
     demais_informacoes: dict
 ):
     """
-    Salva registro na tf_cadastro_regras_negocio, mantendo histórico máximo de 3 registros.
-
-    - objetivos_especificos: lista de strings
-    - eixos_tematicos: lista de dicts
-    - demais_informacoes: dict de informações complementares
-
-    Também atualiza as colunas "acoes_manejo" e "insumos" com base nos eixos.
+    Salva os dados na tabela tf_cadastro_regras_negocio,
+    garantindo que todas as colunas sejam preenchidas corretamente
+    e registrando a hora em UTC-3.
     """
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
-    # Limite de 3 históricos por iniciativa
-    cursor.execute("""
-        SELECT COUNT(*)
-        FROM tf_cadastro_regras_negocio
-        WHERE id_iniciativa = ?
-    """, (id_iniciativa,))
-    total_reg = cursor.fetchone()[0]
-    if total_reg >= 3:
-        cursor.execute("""
-            DELETE FROM tf_cadastro_regras_negocio
-            WHERE id IN (
-                SELECT id
-                FROM tf_cadastro_regras_negocio
-                WHERE id_iniciativa = ?
-                ORDER BY data_hora ASC
-                LIMIT 1
-            )
-        """, (id_iniciativa,))
-
-    # Converte listas/dicts para JSON
+    # Converte listas/dicionários para JSON
     objetivos_json = json.dumps(objetivos_especificos or [])
-    eixos_tematicos_corrigidos = [
-        {
-            "id_eixo": int(e["id_eixo"]) if str(e["id_eixo"]).isdigit() else 0,  # Garantir que seja número
-            "nome_eixo": e["nome_eixo"],
-            "acoes_manejo": e["acoes_manejo"]
-        }
-        for e in st.session_state["eixos_tematicos"]
-    ]
+    eixos_json = json.dumps(eixos_tematicos or [])
+    demais_info_json = json.dumps(demais_informacoes or {})
 
-    eixos_json = json.dumps(eixos_tematicos_corrigidos)
-
-    # Extrai lista de ações e insumos a partir de eixos
+    # Extração de Ações e Insumos
     acoes_set = set()
     insumos_set = set()
     for eixo in eixos_tematicos:
@@ -200,72 +173,83 @@ def salvar_dados_iniciativa(
     acoes_json = json.dumps(list(acoes_set))
     insumos_json = json.dumps(list(insumos_set))
 
-    # Regra consolidada
-    final_rule = {
+    # Construção do campo "regra"
+    regra_final = {
         "objetivo_geral": objetivo_geral,
         "objetivos_especificos": objetivos_especificos,
         "eixos_tematicos": eixos_tematicos,
         "acoes": list(acoes_set),
         "insumos": list(insumos_set)
     }
-    regra_json = json.dumps(final_rule)
+    regra_json = json.dumps(regra_final)
 
-    # Converte o dicionário 'demais_informacoes' em JSON
-    demais_info_json = json.dumps(
-        demais_informacoes) if demais_informacoes else "{}"
-
-    # 1) Distribuição UC (df_uc_editado)
+    # 🔄 Distribuição por Unidade (df_uc_editado)
     if "df_uc_editado" in st.session_state and not st.session_state["df_uc_editado"].empty:
-        distribuicao_ucs_json = st.session_state["df_uc_editado"].to_json(
-            orient="records", force_ascii=False)
+        df_uc = st.session_state["df_uc_editado"]
+        # Colunas de identificação que devem ser mantidas
+        id_cols = [
+            "id",
+            "DEMANDANTE (diretoria)",
+            "Nome da Proposta/Iniciativa Estruturante",
+            "AÇÃO DE APLICAÇÃO",
+            "CNUC",
+            "id_demandante",
+            "id_iniciativa",
+            "id_acao",
+            "Unidade de Conservação",
+            "TetoSaldo disponível",
+            "TetoPrevisto 2025",
+            "TetoPrevisto 2026",
+            "TetoPrevisto 2027",
+            "TetoTotalDisponivel",
+            "A Distribuir"
+        ]
+        # Colunas dos eixos (as que não estão nas colunas de identificação)
+        eixo_cols = [col for col in df_uc.columns if col not in id_cols]
+        # Filtra os eixos que possuem soma diferente de zero
+        filtered_eixos = [col for col in eixo_cols if df_uc[col].astype(float).sum() != 0]
+        # Seleciona todas as colunas de identificação e somente os eixos filtrados
+        selected_cols = id_cols + filtered_eixos
+        df_filtered = df_uc[selected_cols]
+        distribuicao_ucs_json = df_filtered.to_json(orient="records", force_ascii=False)
     else:
         distribuicao_ucs_json = "[]"
 
-    # 2) Formas de Contratação (formas_contratacao_detalhes)
+
+    # 🔄 Formas de Contratação
     if "formas_contratacao_detalhes" in st.session_state:
         formas_contratacao_json = json.dumps(
-            st.session_state["formas_contratacao_detalhes"], ensure_ascii=False)
+            st.session_state["formas_contratacao_detalhes"], ensure_ascii=False
+        )
     else:
         formas_contratacao_json = "{}"
 
-    # Insere no banco
+    # 🔄 Obtendo a hora correta no UTC-3
+    tz_utc3 = pytz.timezone("America/Sao_Paulo")
+    data_hora_atual = datetime.now(timezone.utc).astimezone(tz_utc3)
+    data_hora_formatada = data_hora_atual.strftime("%Y-%m-%d %H:%M:%S")
+
+    # 🌟 INSERE OU ATUALIZA O REGISTRO NO BANCO
     cursor.execute("""
         INSERT INTO tf_cadastro_regras_negocio (
-            id_iniciativa,
-            usuario,
-            objetivo_geral,
-            objetivos_especificos,
-            eixos_tematicos,
-            acoes_manejo,
-            insumos,
-            regra,
-            introducao,
-            justificativa,
-            metodologia,
-            demais_informacoes,
-            distribuicao_ucs,
-            formas_contratacao
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            id_iniciativa, usuario, data_hora,
+            objetivo_geral, objetivos_especificos, introducao, justificativa, metodologia,
+            demais_informacoes, eixos_tematicos, acoes_manejo, insumos, regra,
+            distribuicao_ucs, formas_contratacao
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
-        id_iniciativa,
-        usuario,
-        objetivo_geral,
-        objetivos_json,
-        eixos_json,
-        acoes_json,
-        insumos_json,
-        regra_json,
-        introducao,
-        justificativa,
-        metodologia,
-        demais_info_json,
-        distribuicao_ucs_json,
-        formas_contratacao_json   # Alterado aqui
+        id_iniciativa, usuario, data_hora_formatada,
+        objetivo_geral, objetivos_json, introducao, justificativa, metodologia,
+        demais_info_json, eixos_json, acoes_json, insumos_json, regra_json,
+        distribuicao_ucs_json, formas_contratacao_json
     ))
 
     conn.commit()
     conn.close()
+
+
+    # st.success(f"✅ Cadastro atualizado com sucesso! (Registrado em UTC-3: {data_hora_formatada})")
+
 
 
 @st.cache_data
@@ -479,6 +463,19 @@ st.write(
 st.divider()
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 # ---------------------------------------------------------
 #  TABS: Introdução / Objetivos / Justificativa / Metodologia
 #        e a aba para Demais Informações
@@ -574,6 +571,20 @@ with st.form("form_textos_resumo"):
                     if st.button("🗑️", key=f"btn_remove_{i}"):
                         del st.session_state["objetivos_especificos"][i]
                         st.rerun()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     # ---------------------------------------------------------
     # 2) INTRODUÇÃO, JUSTIFICATIVA, METODOLOGIA e
@@ -1006,38 +1017,40 @@ with st.form("form_textos_resumo"):
     def load_data_from_db():
         """Carrega e filtra as linhas da tabela para a iniciativa."""
         conn = sqlite3.connect(DB_PATH)
-        df = pd.read_sql_query("SELECT * FROM tf_distribuicao_elegiveis", conn)
-        conn.close()
-        df = df[df["id_iniciativa"] == nova_iniciativa].copy()
+        df = pd.read_sql_query(
+            "SELECT * FROM tf_distribuicao_elegiveis WHERE id_iniciativa = ?",
+            conn,
+            params=[nova_iniciativa]
+        )
         return df
 # -----------------------------------------------------------------------------
-    def salvar_no_banco(df_edit, col_eixos):
-        """Grava no banco as colunas de eixos + 'A Distribuir'."""
+    def salvar_no_banco(df_edit, col_eixos, id_iniciativa):
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
 
         for idx, row in df_edit.iterrows():
             registro_id = row["id"]
-            # Atualiza cada eixo
+            # Para cada eixo
             for c_eixo in col_eixos:
                 val = float(row.get(c_eixo, 0.0))
-                cursor.execute(f"""
+                cursor.execute("""
                     UPDATE tf_distribuicao_elegiveis
-                    SET "{c_eixo}" = ?
+                    SET "{}" = ?
                     WHERE id = ?
-                """, (val, registro_id))
-            # Atualiza saldo
+                    AND id_iniciativa = ?
+                """.format(c_eixo), (val, registro_id, id_iniciativa))
+
             saldo_val = float(row.get("A Distribuir", 0.0))
             cursor.execute("""
                 UPDATE tf_distribuicao_elegiveis
                 SET "A Distribuir" = ?
                 WHERE id = ?
-            """, (saldo_val, registro_id))
-
-         
+                AND id_iniciativa = ?
+            """, (saldo_val, registro_id, id_iniciativa))
 
         conn.commit()
         conn.close()
+
 
        
 # -----------------------------------------------------------------------------
@@ -1503,8 +1516,12 @@ with st.form("form_textos_resumo"):
                 with col1:
                     if st.button(""
                     "✅ **Salvar Distribuição de Recursos**", type="secondary", use_container_width=True):
+                        
+                        
+                        
+                        
                         # 1) Salvar no DB (tf_distribuicao_elegiveis)
-                        salvar_no_banco(edited_df, col_eixos_all)
+                        salvar_no_banco(edited_df, col_eixos_all, nova_iniciativa)
 
                         # 2) Recalcular local, caso queira
                         df_calc = recalcular_saldo(edited_df.copy())
@@ -1523,10 +1540,21 @@ with st.form("form_textos_resumo"):
                         # 4) Atualizar (ou inserir) em tf_cadastro_regras_negocio
                         upsert_eixos_cadastro_regras(nova_iniciativa, used_eixos)
 
+
+
                         # 5) Mensagens e refresh
                         st.success("Distribuição salva!")
                         st.session_state["edit_mode_uc_flag"] = False
                         time.sleep(1)
+
+                        # armazenar os dados atualizados da distribuição no session_state
+                        # consultar do banco a tf_distribuicao_elegiveis e armazenar no session_state
+                        # chamar a função load_data_from_db() para carregar os dados atualizados
+                        
+                        st.session_state["df_uc_editado"] = load_data_from_db()
+                        st.session_state["df_uc_editado_loaded"] = True
+                        
+
 
                         # spinner para dar tempo de ver a mensagem
                         with st.spinner("Recalculando saldo..."):
@@ -1537,7 +1565,7 @@ with st.form("form_textos_resumo"):
 
                         df_calc = edited_df.copy()
                         df_calc = recalcular_saldo(df_calc)
-                        salvar_no_banco(df_calc, col_eixos_all)
+                        salvar_no_banco(df_calc, col_eixos_all, nova_iniciativa)
                         st.success("Saldo recalculado e salvo no banco!")
                         time.sleep(1)
 
@@ -1564,17 +1592,13 @@ with st.form("form_textos_resumo"):
                         # 1) Recalcular saldo
                         df_calc = edited_df.copy()
                         df_calc = recalcular_saldo(df_calc)
-                        salvar_no_banco(df_calc, col_eixos_all)
+                        salvar_no_banco(df_calc, col_eixos_all, nova_iniciativa)
                         st.success("Saldo recalculado e salvo no banco!")
                         time.sleep(1)
                         st.rerun()
 
 
-     
-
-
-
-               
+                    
 
     # ---------------------------------------------------------
 
@@ -1621,12 +1645,13 @@ with st.form("form_textos_resumo"):
     # -------------------------------------------
 
 
-    # ---------------------------------------------
-    # 7) FORMAS DE CONTRATAÇÃO - Múltiplas Entradas
-    # ---------------------------------------------
-    with tab_forma_contratacao:
-        st.subheader("Formas de Contratação")
 
+
+
+    with tab_forma_contratacao:
+
+        st.subheader("Formas de Contratação")
+        
         # -------------------------------------------
         # Funções auxiliares
         # -------------------------------------------
@@ -1670,57 +1695,56 @@ with st.form("form_textos_resumo"):
             else:
                 stored_formas = {}
 
-            st.session_state["formas_contratacao_detalhes"] = stored_formas.get("detalhes_por_forma", {})
+            # Guarda os detalhes já cadastrados
+            st.session_state["formas_contratacao_detalhes"] = stored_formas
+
+            # Limpa variáveis de edição
             st.session_state["edit_mode"] = False
             st.session_state["edit_forma"] = None
             st.session_state["edit_index"] = None
 
         # -------------------------------------------------
-        # 1) Data Editor para seleção de Formas de Contratação
+        # Definimos a lista "oficial" de possíveis formas de contratação
         # -------------------------------------------------
-        with st.form("form_formas_contratacao"):
-            df_default = pd.DataFrame({
-                "Forma de Contratação": [
-                    "Contrato Caixa",
-                    "Contrato ICMBio",
-                    "Fundação de Apoio credenciada pelo ICMBio",
-                    "Fundação de Amparo à pesquisa"
-                ],
-                "Selecionado": [False, False, False, False]
-            })
+        all_forms = [
+            "Contrato Caixa",
+            "Contrato ICMBio",
+            "Fundação de Apoio credenciada pelo ICMBio",
+            "Fundação de Amparo à pesquisa"
+        ]
 
-            df_editor = st.data_editor(
-                df_default if "df_formas_contratacao" not in st.session_state
-                        else st.session_state["df_formas_contratacao"],
-                column_config={
-                    "Forma de Contratação": st.column_config.TextColumn(disabled=True),
-                    "Selecionado": st.column_config.CheckboxColumn("Selecionar")
-                },
-                hide_index=True,
-                key="formas_editor"
-            )
+        # -------------------------------------------------
+        # 1) Quais formas já têm dados no banco?
+        # -------------------------------------------------
+        forms_with_db_data = []
+        for forma_nome, registros in st.session_state["formas_contratacao_detalhes"].items():
+            if registros:  # se houver ao menos 1 registro
+                # forma_nome deve estar na lista oficial (por segurança)
+                if forma_nome in all_forms:
+                    forms_with_db_data.append(forma_nome)
 
-            st.session_state["df_formas_contratacao"] = df_editor.copy()
-            selected_forms = df_editor.loc[df_editor["Selecionado"], "Forma de Contratação"].tolist()
+        # -------------------------------------------------
+        # 2) Permite ao usuário escolher manualmente
+        #    (multiselect, sem st.form, atualiza instantaneamente)
+        # -------------------------------------------------
+        selected_forms_manual = st.multiselect(
+            "Selecione as Formas de Contratação (as que já têm dados virão pré-marcadas):",
+            options=all_forms,
+            default=forms_with_db_data,  # pré-seleciona as que já têm registros
+        )
 
-            if st.form_submit_button("**Confirmar Seleção** \n\n Habilitar formulários para detalhamento \n\n ---⬇️---", use_container_width=True):
-                st.success("Seleção registrada com sucesso!")
+        # Aqui unimos as duas listas: as que têm dados + as que o usuário selecionou
+        final_selected_forms = set(forms_with_db_data + selected_forms_manual)
 
         st.divider()
 
         # -------------------------------------------------
-        # 2) Funções ESPECÍFICAS de cada Expander
+        # 3) Funções ESPECÍFICAS de cada Expander
         # -------------------------------------------------
         def expander_contrato_caixa():
-            """
-            Expander de Contrato Caixa:
-            - Inclusão/edição
-            - Lista de registros
-            """
             with st.expander("📌 Contrato Caixa", expanded=False):
                 registros = st.session_state["formas_contratacao_detalhes"].setdefault("Contrato Caixa", [])
 
-                # Verifica se estamos editando especificamente este "forma"
                 em_edicao_esta_forma = (
                     st.session_state["edit_mode"]
                     and st.session_state["edit_forma"] == "Contrato Caixa"
@@ -1728,15 +1752,12 @@ with st.form("form_textos_resumo"):
                 )
 
                 if em_edicao_esta_forma:
-                    # Edição
                     i = st.session_state["edit_index"]
                     reg_edit = registros[i] if i < len(registros) else {}
 
                     st.markdown("### Editar Registro (Contrato Caixa)")
-                    nome = st.text_input("Contrato Caixa",
-                                        value=reg_edit.get("Contrato Caixa", ""))
-                    obs = st.text_area("Observação",
-                                    value=reg_edit.get("Observação", ""))
+                    nome = st.text_input("Contrato Caixa", value=reg_edit.get("Contrato Caixa", ""))
+                    obs = st.text_area("Observação", value=reg_edit.get("Observação", ""))
 
                     colA, colB = st.columns(2)
                     if colA.button("Salvar Edição", type="primary"):
@@ -1751,7 +1772,6 @@ with st.form("form_textos_resumo"):
                         limpar_edicao()
 
                 else:
-                    # Inclusão
                     st.markdown("###### Incluir Novo Registro (Contrato Caixa)")
                     nome = st.text_input("Contrato Caixa")
                     obs = st.text_area("Observação")
@@ -1765,39 +1785,30 @@ with st.form("form_textos_resumo"):
                             st.session_state["formas_contratacao_detalhes"]["Contrato Caixa"] = registros
                             st.rerun()
 
-
                 st.markdown("---")
-                # Lista de registros
+                # Lista
                 if registros:
                     st.write("###### Registros Adicionados")
                     for i, reg in enumerate(registros):
                         col1, col2, col3 = st.columns([10, 1, 1])
-                        # Descrição do registro
                         texto_campos = []
                         for campo, valor in reg.items():
                             texto_campos.append(f"**{campo}**: {valor}")
                         col1.markdown(f"[{i+1}] " + "  |  ".join(texto_campos))
-                        
 
-                        # Editar
                         if col2.button("✏️", key=f"edit_caixa_{i}"):
                             st.session_state["edit_mode"] = True
                             st.session_state["edit_forma"] = "Contrato Caixa"
                             st.session_state["edit_index"] = i
                             st.rerun()
 
-                        # Remover
                         if col3.button("❌", key=f"del_caixa_{i}"):
                             del registros[i]
                             st.session_state["formas_contratacao_detalhes"]["Contrato Caixa"] = registros
                             st.rerun()
 
 
-
         def expander_contrato_icmbio():
-            """
-            Expander de Contrato ICMBio:
-            """
             with st.expander("📌 Contrato ICMBio", expanded=False):
                 registros = st.session_state["formas_contratacao_detalhes"].setdefault("Contrato ICMBio", [])
 
@@ -1808,13 +1819,10 @@ with st.form("form_textos_resumo"):
                 )
 
                 if em_edicao_esta_forma:
-                    # Edição
                     i = st.session_state["edit_index"]
                     reg_edit = registros[i] if i < len(registros) else {}
 
                     st.markdown("### Editar Registro (Contrato ICMBio)")
-
-                    # Agora usamos text_input para o campo de Contrato ICMBio
                     contrato_icmbio = st.text_input(
                         "Quais contratos do ICMBio possuem os insumos/serviços?",
                         value=reg_edit.get("Contrato ICMBio", "")
@@ -1841,17 +1849,10 @@ with st.form("form_textos_resumo"):
 
                     if colB.button("Cancelar"):
                         limpar_edicao()
-
                 else:
-                    # Inclusão
                     st.markdown("###### Incluir Novo Registro (Contrato ICMBio)")
-
-                    # Também text_input para inclusão
                     contrato_icmbio = st.text_input("Quais contratos do ICMBio possuem os insumos/serviços?")
-                    coord_gestora = st.radio(
-                        "A coordenação geral é gestora de algum desses contratos?",
-                        ["Sim", "Não"]
-                    )
+                    coord_gestora = st.radio("A coordenação geral é gestora de algum desses contratos?", ["Sim", "Não"])
                     justificativa = st.text_area("Justificativa para uso (em detrimento de contrato CAIXA)")
 
                     if st.button("➕ Adicionar Contrato ICMBio"):
@@ -1863,7 +1864,6 @@ with st.form("form_textos_resumo"):
                             })
                             st.session_state["formas_contratacao_detalhes"]["Contrato ICMBio"] = registros
                             st.rerun()
-
 
                 st.markdown("---")
                 # Lista
@@ -1889,9 +1889,6 @@ with st.form("form_textos_resumo"):
 
 
         def expander_fundacao_apoio():
-            """
-            Expander de Fundação de Apoio credenciada pelo ICMBio
-            """
             with st.expander("📌 Fundação de Apoio credenciada pelo ICMBio", expanded=False):
                 nome_forma = "Fundação de Apoio credenciada pelo ICMBio"
                 registros = st.session_state["formas_contratacao_detalhes"].setdefault(nome_forma, [])
@@ -1903,12 +1900,10 @@ with st.form("form_textos_resumo"):
                 )
 
                 if em_edicao_esta_forma:
-                    # Edição
                     i = st.session_state["edit_index"]
                     reg_edit = registros[i] if i < len(registros) else {}
 
                     st.markdown("### Editar Registro (Fundação de Apoio)")
-
                     existe_projeto_val = reg_edit.get("Existe Projeto CPPar?", "Não")
                     if existe_projeto_val not in ["Sim", "Não"]:
                         existe_projeto_val = "Não"
@@ -1928,11 +1923,12 @@ with st.form("form_textos_resumo"):
                     if in_concorda_val not in ["Sim", "Não"]:
                         in_concorda_val = "Não"
 
-                    in_concorda_val = st.radio("A iniciativa está de acordo com a IN nº 18/2018 e 12/2024?",
-                                            ["Sim", "Não"],
-                                            index=["Não", "Sim"].index(in_concorda_val))
-                    justificativa = st.text_area("Justificativa",
-                                                value=reg_edit.get("Justificativa", ""))
+                    in_concorda_val = st.radio(
+                        "A iniciativa está de acordo com a IN nº 18/2018 e 12/2024?",
+                        ["Sim", "Não"],
+                        index=["Não", "Sim"].index(in_concorda_val)
+                    )
+                    justificativa = st.text_area("Justificativa", value=reg_edit.get("Justificativa", ""))
 
                     colA, colB = st.columns(2)
                     if colA.button("Salvar Edição"):
@@ -1950,11 +1946,10 @@ with st.form("form_textos_resumo"):
                         limpar_edicao()
 
                 else:
-                    # Inclusão
                     st.markdown("###### Incluir Novo Registro (Fundação de Apoio)")
                     existe_projeto_val = st.radio(
                         "Já existe projeto aprovado pela CPPar relacionado a este tema?",
-                        ["Sim", "Não"], index=1 # Default to "Não"
+                        ["Sim", "Não"], index=1
                     )
                     sei_projeto = ""
                     sei_ata = ""
@@ -2004,9 +1999,6 @@ with st.form("form_textos_resumo"):
 
 
         def expander_fundacao_amparo():
-            """
-            Expander de Fundação de Amparo à pesquisa
-            """
             with st.expander("📌 Fundação de Amparo à pesquisa", expanded=False):
                 nome_forma = "Fundação de Amparo à pesquisa"
                 registros = st.session_state["formas_contratacao_detalhes"].setdefault(nome_forma, [])
@@ -2018,24 +2010,19 @@ with st.form("form_textos_resumo"):
                 )
 
                 if em_edicao_esta_forma:
-                    # Edição
                     i = st.session_state["edit_index"]
                     reg_edit = registros[i] if i < len(registros) else {}
 
                     st.markdown("### Editar Registro (Fundação de Amparo)")
-
-                    # 1) Pergunta inicial (Sim/Não)
                     existe_contato_val = reg_edit.get("Existe Projeto/Parceria?", "Não")
                     if existe_contato_val not in ["Sim", "Não"]:
                         existe_contato_val = "Não"
-
                     existe_contato_val = st.radio(
-                        "Existe projeto ou parceria em andamento ou contato prévio com a fundação para estabelecer novas parcerias?",
+                        "Existe projeto ou parceria em andamento ou contato prévio com a fundação?",
                         ["Sim", "Não"],
                         index=["Não", "Sim"].index(existe_contato_val)
                     )
 
-                    # 2) Se "Sim", exibe campos extras
                     nome_fundacao = ""
                     observacoes = ""
                     if existe_contato_val == "Sim":
@@ -2050,14 +2037,12 @@ with st.form("form_textos_resumo"):
 
                     colA, colB = st.columns(2)
                     if colA.button("Salvar Edição"):
-                        # Montamos o dicionário a partir do que foi selecionado
                         registros[i] = {
                             "Existe Projeto/Parceria?": existe_contato_val,
                             "Nome da Fundação": nome_fundacao.strip() if existe_contato_val == "Sim" else "",
                             "Observações": observacoes.strip() if existe_contato_val == "Sim" else "",
                         }
                         st.session_state["formas_contratacao_detalhes"][nome_forma] = registros
-                        # Sai do modo de edição
                         st.session_state["edit_mode"] = False
                         st.session_state["edit_forma"] = None
                         st.session_state["edit_index"] = None
@@ -2068,18 +2053,12 @@ with st.form("form_textos_resumo"):
                         st.session_state["edit_forma"] = None
                         st.session_state["edit_index"] = None
                         st.rerun()
-
                 else:
-                    # Inclusão
                     st.markdown("###### Incluir Novo Registro (Fundação de Amparo)")
-
-                    # 1) Pergunta inicial (Sim/Não)
                     existe_contato_val = st.radio(
-                        "Existe projeto ou parceria em andamento ou contato prévio com a fundação para estabelecer novas parcerias?",
-                        ["Sim", "Não"], index=1 # Default to "Não"
+                        "Existe projeto ou parceria em andamento ou contato prévio com a fundação?",
+                        ["Sim", "Não"], index=1
                     )
-
-                    # 2) Se "Sim", exibe campos extras
                     nome_fundacao = ""
                     observacoes = ""
                     if existe_contato_val == "Sim":
@@ -2097,7 +2076,7 @@ with st.form("form_textos_resumo"):
                         st.rerun()
 
                 st.markdown("---")
-                # Lista de registros
+                # Lista
                 if registros:
                     st.write("###### Registros Adicionados")
                     for i, reg in enumerate(registros):
@@ -2120,19 +2099,21 @@ with st.form("form_textos_resumo"):
 
 
         # -------------------------------------------------
-        # 3) Exibe os expanders de acordo com as formas selecionadas
+        # 4) Exibe os expanders de acordo com as formas selecionadas
         # -------------------------------------------------
-        if "Contrato Caixa" in selected_forms:
+        if "Contrato Caixa" in final_selected_forms:
             expander_contrato_caixa()
 
-        if "Contrato ICMBio" in selected_forms:
+        if "Contrato ICMBio" in final_selected_forms:
             expander_contrato_icmbio()
 
-        if "Fundação de Apoio credenciada pelo ICMBio" in selected_forms:
+        if "Fundação de Apoio credenciada pelo ICMBio" in final_selected_forms:
             expander_fundacao_apoio()
 
-        if "Fundação de Amparo à pesquisa" in selected_forms:
+        if "Fundação de Amparo à pesquisa" in final_selected_forms:
             expander_fundacao_amparo()
+
+
 
         # # -------------------------------------------------
         # # 4) Botão final para Salvar no banco
@@ -2218,6 +2199,17 @@ with st.form("form_textos_resumo"):
             # salvar unidades de conservação
             st.session_state["df_uc_editado"] = st.session_state["df_uc_editado"]
 
+            # consumir do banco os dados atualizados da distribuição dos recursos por eixo e armazenar em session state
+            if "df_distribuicao_elegiveis" not in st.session_state:
+                st.session_state["df_distribuicao_elegiveis"] = {}
+            else:
+                st.session_state["df_distribuicao_elegiveis"] = st.session_state["df_distribuicao_elegiveis"]
+            # salvar eixos temáticos em session state
+            if "eixos_tematicos" not in st.session_state:
+                st.session_state["eixos_tematicos"] = {}
+            else:
+                st.session_state["eixos_tematicos"] = st.session_state["eixos_tematicos"]
+
 
             # salvar formas de contratação em session state
             if "formas_contratacao_detalhes" not in st.session_state:
@@ -2290,12 +2282,28 @@ st.divider()
 
 st.write(st.session_state)
 
-# exibir session state da tab distribuicao
-if "df_uc_editado" in st.session_state:
-    st.write("#### Dados da Distribuição de Recursos")
-    st.write(st.session_state["df_uc_editado"])
+# chamar função de consulta da tabela cadastro regras negocio
+conn = sqlite3.connect(DB_PATH)
+conn.row_factory = sqlite3.Row
+row = conn.execute("""
+    SELECT *
+    FROM tf_cadastro_regras_negocio
+    WHERE id_iniciativa = ?
+    ORDER BY data_hora DESC
+    LIMIT 1
+""", (nova_iniciativa,)).fetchone()
+conn.close()
+# transformer row em df
+if row:
+    df_cadastro_regras = pd.DataFrame([dict(row)])
+    st.write("### Dados Cadastrados")
+    st.dataframe(df_cadastro_regras, use_container_width=True)
 
-# exibir session state da tab formas de contratacao
-if "formas_contratacao_detalhes" in st.session_state:
-    st.write("#### Dados das Formas de Contratação")
-    st.write(st.session_state["formas_contratacao_detalhes"])
+
+
+# exibir distribuicao em sessão df_uc_editado
+if "df_uc_editado" in st.session_state:
+    if st.session_state["df_uc_editado"] is not None:
+        df_uc_editado = st.session_state["df_uc_editado"]
+        st.write("### Distribuição de Recursos por Unidade de Conservação")
+        st.dataframe(df_uc_editado, use_container_width=True)

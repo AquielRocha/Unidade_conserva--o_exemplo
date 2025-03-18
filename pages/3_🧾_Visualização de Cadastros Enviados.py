@@ -182,13 +182,30 @@ def format_eixos_tematicos_table(json_str):
                     nome_acao = acoes_map.get(str(acao_id), f"Ação {acao_id}")
                     insumos_list = detalhes.get("insumos", [])
                     if insumos_list:
-                        insumos_html = ", ".join(insumos_map.get(str(i), str(i)) for i in insumos_list)
+                        especificacoes = detalhes.get("especificacao_padrao", {})
+                        insumos_por_especificacao = {}
+                        for insumo_id in insumos_list:
+                            insumo_nome = insumos_map.get(str(insumo_id), str(insumo_id))
+                            especificacao_padrao = especificacoes.get(str(insumo_id), "Sem especificação")
+                            if especificacao_padrao not in insumos_por_especificacao:
+                                insumos_por_especificacao[especificacao_padrao] = []
+                            insumos_por_especificacao[especificacao_padrao].append(insumo_nome)
+
+                        insumos_html = "<ul>"
+                        for especificacao, insumos in insumos_por_especificacao.items():
+                            especificacao_escaped = html.escape(especificacao)
+                            insumos_html += f"<li>{especificacao_escaped}<ul>"
+                            for insumo in insumos:
+                                insumo_escaped = html.escape(insumo)
+                                insumos_html += f"<li>{insumo_escaped}</li>"
+                            insumos_html += "</ul></li>"
+                        insumos_html += "</ul>"
                     else:
                         insumos_html = "-"
                     table_html += f"""
 <tr>
-<td>{nome_eixo}</td>
-<td>{nome_acao}</td>
+<td>{html.escape(nome_eixo)}</td>
+<td>{html.escape(nome_acao)}</td>
 <td>{insumos_html}</td>
 </tr>
 """
