@@ -310,17 +310,20 @@ def render_card(user_id, is_new=False):
 
         st.markdown("<div class='card-footer'>", unsafe_allow_html=True)
         if is_new:
-            if st.button("➕ Adicionar", key="add_new_btn"):
+            if st.button("➕ Adicionar", key="add_new_btn", use_container_width=True):
                 st.session_state["edit_user_id"] = user_id
                 rerun()
         else:
-            if st.button("✏️ Editar", key=f"edit_btn_{user_id}"):
-                st.session_state["edit_user_id"] = user_id
-                rerun()
-            if st.button("🗑 Excluir", key=f"delete_btn_{user_id}"):
-                delete_user(user_id)
-                st.success("Usuário excluído com sucesso!")
-                rerun()
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("✏️ Editar", key=f"edit_btn_{user_id}", use_container_width=True):
+                    st.session_state["edit_user_id"] = user_id
+                    rerun()
+            with col2:        
+                if st.button("🗑 Excluir", key=f"delete_btn_{user_id}", use_container_width=True):
+                    delete_user(user_id)
+                    st.success("Usuário excluído com sucesso!")
+                    rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
     # Fecha a div.card

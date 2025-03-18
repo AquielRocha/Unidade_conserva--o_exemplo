@@ -59,19 +59,13 @@ df_tetos.rename(columns=rename_map, inplace=True)
 st.sidebar.header("Filtros")
 
 # a) Filtro Iniciativa
-lista_iniciativas = sorted(df_tetos["id_iniciativa"].dropna().unique())
+lista_iniciativas = sorted(df_tetos["Nome da Proposta/Iniciativa Estruturante"].dropna().unique())
 filtro_iniciativa = st.sidebar.selectbox(
     "Selecione a Iniciativa",
-    options=["Todos"] + list(map(str, lista_iniciativas))
+    options=["Todos"] + lista_iniciativas
 )
 if filtro_iniciativa != "Todos":
-    # se for numérico, converta
-    try:
-        val_inic = int(filtro_iniciativa)
-        df_tetos = df_tetos[df_tetos["id_iniciativa"] == val_inic]
-    except:
-        # se for string
-        df_tetos = df_tetos[df_tetos["id_iniciativa"].astype(str) == filtro_iniciativa]
+    df_tetos = df_tetos[df_tetos["Nome da Proposta/Iniciativa Estruturante"] == filtro_iniciativa]
 
 # b) Filtro UC
 if "UnidadeConservacao" in df_tetos.columns:
@@ -79,6 +73,14 @@ if "UnidadeConservacao" in df_tetos.columns:
     filtro_uc = st.sidebar.selectbox("Unidade de Conservação", ["Todas"] + list(lista_uc))
     if filtro_uc != "Todas":
         df_tetos = df_tetos[df_tetos["UnidadeConservacao"] == filtro_uc]
+
+# filtro por demandante
+if "DEMANDANTE (diretoria)" in df_tetos.columns:
+    lista_demandantes = sorted(df_tetos["DEMANDANTE (diretoria)"].dropna().unique())
+    filtro_demandante = st.sidebar.selectbox("Demandante", ["Todos"] + list(lista_demandantes))
+    if filtro_demandante != "Todos":
+        df_tetos = df_tetos[df_tetos["DEMANDANTE (diretoria)"] == filtro_demandante]
+
 
 # c) (Opcional) Filtrar só tetos > 0
 filtro_somente_positivos = st.sidebar.checkbox("Mostrar somente TetoTotalDisponivel > 0?", value=False)

@@ -15,6 +15,9 @@ import json
 import pandas as pd
 import time as time
 
+import pytz
+from datetime import datetime, timezone
+
 # -----------------------------------------------------------------------------
 #                     Verificação de Login e Configurações de Página
 # -----------------------------------------------------------------------------
@@ -134,8 +137,7 @@ def carregar_resumo_iniciativa(setor: str) -> pd.DataFrame | None:
     return df
 
 
-import pytz
-from datetime import datetime, timezone
+
 
 def salvar_dados_iniciativa(
     id_iniciativa: int,
@@ -1517,7 +1519,8 @@ with st.form("form_textos_resumo"):
                     if st.button(""
                     "✅ **Salvar Distribuição de Recursos**", type="secondary", use_container_width=True):
                         
-                        
+                        # recalcular saldo antes de salvar
+                        edited_df = recalcular_saldo(edited_df.copy())
                         
                         
                         # 1) Salvar no DB (tf_distribuicao_elegiveis)
@@ -1726,12 +1729,14 @@ with st.form("form_textos_resumo"):
         # -------------------------------------------------
         # 2) Permite ao usuário escolher manualmente
         #    (multiselect, sem st.form, atualiza instantaneamente)
-        # -------------------------------------------------
-        selected_forms_manual = st.multiselect(
-            "Selecione as Formas de Contratação (as que já têm dados virão pré-marcadas):",
+        selected_forms_manual = st.segmented_control(
+            "---",
+            selection_mode="multi",
             options=all_forms,
             default=forms_with_db_data,  # pré-seleciona as que já têm registros
         )
+        if isinstance(selected_forms_manual, str):
+            selected_forms_manual = [selected_forms_manual]
 
         # Aqui unimos as duas listas: as que têm dados + as que o usuário selecionou
         final_selected_forms = set(forms_with_db_data + selected_forms_manual)
@@ -2243,6 +2248,7 @@ with col2:
             justificativa=st.session_state["justificativa"],
             metodologia=st.session_state["metodologia"],
             demais_informacoes=st.session_state["demais_informacoes"]
+            
         )
         st.success("✅ Cadastro atualizado com sucesso!")
 
@@ -2280,7 +2286,7 @@ st.divider()
 # st.divider()
 
 
-st.write(st.session_state)
+# st.write(st.session_state)
 
 # chamar função de consulta da tabela cadastro regras negocio
 conn = sqlite3.connect(DB_PATH)
