@@ -111,6 +111,10 @@ def carregar_dados_iniciativa(id_iniciativa: int) -> dict | None:
     except:
         info_dict = {}
 
+
+    # distribuição por unidades de conservação (df_uc_editado)
+    
+
     return {
         "objetivo_geral":      row["objetivo_geral"],
         "objetivos_especificso": row["objetivos_especificos"],
@@ -1777,18 +1781,27 @@ with st.form("form_textos_resumo"):
                         limpar_edicao()
 
                 else:
-                    st.markdown("###### Incluir Novo Registro (Contrato Caixa)")
-                    nome = st.text_input("Contrato Caixa")
-                    obs = st.text_area("Observação")
-
-                    if st.button("➕ Adicionar Contrato Caixa"):
-                        if nome.strip():
+                    def add_contrato_caixa():
+                        nome = st.session_state.txt_novo_contrato_caixa.strip()
+                        obs = st.session_state.txt_nova_observacao.strip()
+                        if nome:
                             registros.append({
-                                "Contrato Caixa": nome.strip(),
-                                "Observação": obs.strip()
+                                "Contrato Caixa": nome,
+                                "Observação": obs
                             })
                             st.session_state["formas_contratacao_detalhes"]["Contrato Caixa"] = registros
-                            st.rerun()
+                            # Limpa campos sem usar st.rerun:
+                            st.session_state.txt_novo_contrato_caixa = ""
+                            st.session_state.txt_nova_observacao = ""
+
+                    st.markdown("###### Incluir Novo Registro (Contrato Caixa)")
+                    st.text_input("Contrato Caixa", key="txt_novo_contrato_caixa")
+                    st.text_area("Observação", key="txt_nova_observacao")
+
+                    st.button(
+                        "➕ Adicionar Contrato Caixa",
+                        on_click=add_contrato_caixa
+                    )
 
                 st.markdown("---")
                 # Lista
@@ -1856,19 +1869,43 @@ with st.form("form_textos_resumo"):
                         limpar_edicao()
                 else:
                     st.markdown("###### Incluir Novo Registro (Contrato ICMBio)")
-                    contrato_icmbio = st.text_input("Quais contratos do ICMBio possuem os insumos/serviços?")
-                    coord_gestora = st.radio("A coordenação geral é gestora de algum desses contratos?", ["Sim", "Não"])
-                    justificativa = st.text_area("Justificativa para uso (em detrimento de contrato CAIXA)")
-
-                    if st.button("➕ Adicionar Contrato ICMBio"):
-                        if contrato_icmbio.strip():
+                    # Função para adicionar novo registro
+                    def add_contrato_icmbio():
+                        nome = st.session_state.txt_novo_contrato_icmbio.strip()
+                        c_gestora = st.session_state.txt_novo_coord_gestora
+                        justif = st.session_state.txt_nova_justificativa_icmbio.strip()
+                        if nome:
                             registros.append({
-                                "Contrato ICMBio": contrato_icmbio.strip(),
-                                "Coordenação Gestora?": coord_gestora,
-                                "Justificativa": justificativa.strip()
+                                "Contrato ICMBio": nome,
+                                "Coordenação Gestora?": c_gestora,
+                                "Justificativa": justif
                             })
                             st.session_state["formas_contratacao_detalhes"]["Contrato ICMBio"] = registros
-                            st.rerun()
+                            # Limpa os campos sem precisar de outro rerun:
+                            st.session_state.txt_novo_contrato_icmbio = ""
+                            st.session_state.txt_novo_coord_gestora = "Sim"  # ou "Não", se preferir
+                            st.session_state.txt_nova_justificativa_icmbio = ""
+
+
+                    # Campos com keys, para poder limpar após clicar no botão
+                    contrato_icmbio = st.text_input(
+                        "Quais contratos do ICMBio possuem os insumos/serviços?",
+                        key="txt_novo_contrato_icmbio"
+                    )
+                    coord_gestora = st.radio(
+                        "A coordenação geral é gestora de algum desses contratos?",
+                        ["Sim", "Não"],
+                        key="txt_novo_coord_gestora"
+                    )
+                    justificativa = st.text_area(
+                        "Justificativa para uso (em detrimento de contrato CAIXA)",
+                        key="txt_nova_justificativa_icmbio"
+                    )
+
+                    st.button(
+                        "➕ Adicionar Contrato ICMBio",
+                        on_click=add_contrato_icmbio
+                    )
 
                 st.markdown("---")
                 # Lista
@@ -1952,33 +1989,42 @@ with st.form("form_textos_resumo"):
 
                 else:
                     st.markdown("###### Incluir Novo Registro (Fundação de Apoio)")
-                    existe_projeto_val = st.radio(
-                        "Já existe projeto aprovado pela CPPar relacionado a este tema?",
-                        ["Sim", "Não"], index=1
-                    )
-                    sei_projeto = ""
-                    sei_ata = ""
-                    if existe_projeto_val == "Sim":
-                        sei_projeto = st.text_input("Número SEI do Projeto")
-                        sei_ata = st.text_input("Número SEI da Ata/Decisão")
-
-                    in_concorda_val = st.radio(
-                        "A iniciativa está de acordo com a IN nº 18/2018 e 12/2024?",
-                        ["Sim", "Não"]
-                    )
-                    justificativa = st.text_area("Justificativa")
-
-                    if st.button("➕ Adicionar Fundação de Apoio"):
+                    # Função para adicionar novo registro
+                    def add_fundacao_apoio():
                         novo_reg = {
-                            "Existe Projeto CPPar?": existe_projeto_val,
-                            "SEI Projeto": sei_projeto.strip() if existe_projeto_val == "Sim" else "",
-                            "SEI Ata": sei_ata.strip() if existe_projeto_val == "Sim" else "",
-                            "Concorda com IN18/2018 e 12/2024?": in_concorda_val,
-                            "Justificativa": justificativa.strip()
+                            "Existe Projeto CPPar?": st.session_state.txt_existe_projeto_val,
+                            "SEI Projeto": st.session_state.txt_sei_projeto.strip()
+                                if st.session_state.txt_existe_projeto_val == "Sim" else "",
+                            "SEI Ata": st.session_state.txt_sei_ata.strip()
+                                if st.session_state.txt_existe_projeto_val == "Sim" else "",
+                            "Concorda com IN18/2018 e 12/2024?": st.session_state.txt_in_concorda_val,
+                            "Justificativa": st.session_state.txt_justificativa_fundacao.strip()
                         }
                         registros.append(novo_reg)
                         st.session_state["formas_contratacao_detalhes"][nome_forma] = registros
-                        st.rerun()
+
+                        st.session_state.txt_existe_projeto_val = "Não"
+                        st.session_state.txt_sei_projeto = ""
+                        st.session_state.txt_sei_ata = ""
+                        st.session_state.txt_in_concorda_val = "Não"
+                        st.session_state.txt_justificativa_fundacao = ""
+
+                    st.radio(
+                        "Já existe projeto aprovado pela CPPar relacionado a este tema?",
+                        ["Sim", "Não"], index=1, key="txt_existe_projeto_val"
+                    )
+                    if st.session_state.txt_existe_projeto_val == "Sim":
+                        st.text_input("Número SEI do Projeto", key="txt_sei_projeto")
+                        st.text_input("Número SEI da Ata/Decisão", key="txt_sei_ata")
+
+                    st.radio(
+                        "A iniciativa está de acordo com a IN nº 18/2018 e 12/2024?",
+                        ["Sim", "Não"], key="txt_in_concorda_val"
+                    )
+                    st.text_area("Justificativa", key="txt_justificativa_fundacao")
+
+                    if st.button("➕ Adicionar Fundação de Apoio", on_click=add_fundacao_apoio):
+                        pass
 
                 st.markdown("---")
                 # Lista
@@ -2060,25 +2106,35 @@ with st.form("form_textos_resumo"):
                         st.rerun()
                 else:
                     st.markdown("###### Incluir Novo Registro (Fundação de Amparo)")
-                    existe_contato_val = st.radio(
-                        "Existe projeto ou parceria em andamento ou contato prévio com a fundação?",
-                        ["Sim", "Não"], index=1
-                    )
-                    nome_fundacao = ""
-                    observacoes = ""
-                    if existe_contato_val == "Sim":
-                        nome_fundacao = st.text_input("Nome da Fundação de Amparo visada para a parceria")
-                        observacoes = st.text_area("Outras observações ou informações relevantes")
+                    # Função para adicionar novo registro
+                    def add_fundacao_amparo():
+                        existe_contato_val = st.session_state.txt_amparo_existe_contato_val
+                        nome_fundacao = st.session_state.txt_amparo_nome_fundacao.strip() if existe_contato_val == "Sim" else ""
+                        observacoes = st.session_state.txt_amparo_observacoes.strip() if existe_contato_val == "Sim" else ""
 
-                    if st.button("➕ Adicionar Fundação de Amparo"):
                         novo_reg = {
                             "Existe Projeto/Parceria?": existe_contato_val,
-                            "Nome da Fundação": nome_fundacao.strip() if existe_contato_val == "Sim" else "",
-                            "Observações": observacoes.strip() if existe_contato_val == "Sim" else "",
+                            "Nome da Fundação": nome_fundacao,
+                            "Observações": observacoes,
                         }
                         registros.append(novo_reg)
                         st.session_state["formas_contratacao_detalhes"][nome_forma] = registros
-                        st.rerun()
+
+                        # Limpar campos
+                        st.session_state.txt_amparo_existe_contato_val = "Não"
+                        st.session_state.txt_amparo_nome_fundacao = ""
+                        st.session_state.txt_amparo_observacoes = ""
+
+                    st.radio(
+                        "Existe projeto ou parceria em andamento ou contato prévio com a fundação?",
+                        ["Sim", "Não"], index=1, key="txt_amparo_existe_contato_val"
+                    )
+                    if st.session_state.txt_amparo_existe_contato_val == "Sim":
+                        st.text_input("Nome da Fundação de Amparo visada para a parceria", key="txt_amparo_nome_fundacao")
+                        st.text_area("Outras observações ou informações relevantes", key="txt_amparo_observacoes")
+
+                    if st.button("➕ Adicionar Fundação de Amparo", on_click=add_fundacao_amparo):
+                        pass
 
                 st.markdown("---")
                 # Lista
