@@ -17,6 +17,7 @@ from xhtml2pdf import pisa
 
 # Visualização de PDF
 from streamlit_pdf_viewer import pdf_viewer
+from datetime import datetime
 
 # Verificação de login no Streamlit
 if "usuario_logado" not in st.session_state or not st.session_state["usuario_logado"]:
@@ -933,10 +934,19 @@ def gerar_excel_por_abas(df: pd.DataFrame) -> bytes:
 if st.button("📥 Gerar Excel "):
     with st.spinner("Gerando arquivo Excel..."):
         excel_bytes = gerar_excel_por_abas(df_filtrado)
+    current_datetime = datetime.now().strftime("%Y%m%d%H%M")
+    demandante = st.session_state.get("setor", "")
+    if not df_filtrado.empty:
+        id_iniciativa = df_filtrado.iloc[0].get("id_iniciativa", "")
+        usuario = df_filtrado.iloc[0].get("usuario", "")
+        file_name = f"{current_datetime}_{demandante}_{id_iniciativa}_{usuario}.xlsx"
+    else:
+        file_name = "export.xlsx"
+
     st.download_button(
         label="Download Excel",
         data=excel_bytes,
-        file_name=f"iniciativas_{iniciativa_selecionada}.xlsx",
+        file_name=file_name,
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
