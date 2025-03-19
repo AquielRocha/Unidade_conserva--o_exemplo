@@ -201,7 +201,8 @@ with col_botaoFiltro:
 
 
 with st.form(key="form_sugestao_texto_livre"):
-    elemento_text = st.selectbox("Elemento de Despesa:", options=[""] + todos_elementos + ["Bens", "Serviços"])
+    todos_elementos_unicos = list(set(todos_elementos + ["Bens", "Serviços"]))
+    elemento_text = st.selectbox("Elemento de Despesa:", options=[""] + sorted(todos_elementos_unicos))
     espec_text = st.text_input("Especificação Padrão (texto livre)").strip()
     desc_insumo_text = st.text_input("Descrição do Insumo (texto livre)").strip()
     preco_input = st.number_input("Preço de Referência (R$)", min_value=0.0, step=0.5, value=0.0)
