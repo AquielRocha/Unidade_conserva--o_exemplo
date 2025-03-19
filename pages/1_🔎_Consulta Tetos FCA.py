@@ -681,7 +681,7 @@ st.markdown("""
 
 
 # se usuário for admin, exibe o expander abaixo
-if st.session_state["usuario_logado"] and st.session_state["perfil"] == "admin":
+if st.session_state["usuario_logado"] and st.session_state["perfil"] == "admin" or st.session_state["perfil"] == "comum":
 
 
     #####################################
