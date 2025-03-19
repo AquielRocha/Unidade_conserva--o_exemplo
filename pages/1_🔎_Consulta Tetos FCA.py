@@ -693,10 +693,10 @@ if st.session_state["usuario_logado"] and st.session_state["perfil"] == "admin" 
     with st.expander("📥 Dados Disponíveis para Download", expanded=False):
         col1, col2 = st.columns(2)
         with col1:
-            st.info(
+            st.warning(
                 """
-                Os dados disponíveis para download incluem os tetos financeiros por unidade de conservação, 
-                iniciativa e ano.
+                Os dados disponíveis para download incluem os tetos financeiros disponíveis por ano, por unidade de conservação, 
+                iniciativa e por eixo temático.
                 """
             )
         with col2:
@@ -716,9 +716,6 @@ if st.session_state["usuario_logado"] and st.session_state["perfil"] == "admin" 
 
         df_show = df_tetos_completo.copy().reset_index(drop=True)
 
-        # Insere coluna "No" manual
-        df_show.insert(0, "No", range(1, len(df_show) + 1))
-
         # formatar texto coluna DEMANDANTE (diretoria) com uppercase
         if "DEMANDANTE (diretoria)" in df_show.columns:
             df_show["DEMANDANTE (diretoria)"] = df_show["DEMANDANTE (diretoria)"].str.upper()
@@ -730,7 +727,6 @@ if st.session_state["usuario_logado"] and st.session_state["perfil"] == "admin" 
             df_show["Nome da Proposta/Iniciativa Estruturante"] = df_show["Nome da Proposta/Iniciativa Estruturante"].str.title()
 
         st.dataframe(df_show, use_container_width=True, hide_index=True, column_config={
-            "No": st.column_config.NumberColumn(format="%d"),
             "UnidadeConservacao": st.column_config.TextColumn(),
             "TetoSaldo disponível": st.column_config.NumberColumn(format="accounting", help="R$"),
             "TetoPrevisto 2025": st.column_config.NumberColumn(format="accounting", help="R$"),
