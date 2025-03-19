@@ -45,7 +45,16 @@ def load_tetos_from_db() -> pd.DataFrame:
     conn = sqlite3.connect(DB_PATH)
     df = pd.read_sql_query("SELECT * FROM tf_distribuicao_elegiveis", conn)
     conn.close()
+    
+    # Normaliza os dados para comparação
+    if "DEMANDANTE (diretoria)" in df.columns and "setor" in st.session_state:
+        df["DEMANDANTE (diretoria)"] = df["DEMANDANTE (diretoria)"].str.upper()
+        setor_usuario = st.session_state["setor"].upper()
+        df = df[df["DEMANDANTE (diretoria)"] == setor_usuario]
+    
     return df
+
+
 
 ####################################
 # 4) Verifica se o BD existe       #
@@ -822,3 +831,7 @@ if st.session_state["usuario_logado"] and st.session_state["perfil"] == "admin":
                 mime="application/json",
                 use_container_width=True
             )
+
+
+
+# st.write(st.session_state)
