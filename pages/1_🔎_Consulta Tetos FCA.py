@@ -194,7 +194,7 @@ if st.session_state["usuario_logado"] and st.session_state["perfil"] == "admin":
 # 8) Exibição de Estatísticas     #
 ###################################
 st.divider()
-st.subheader("Estatísticas Gerais")
+st.markdown("#### Estatísticas Gerais")
 
 # Podemos exibir algumas métricas em colunas
 col1, col2, col3, col4 = st.columns(4)
@@ -418,7 +418,7 @@ def agrupar_e_exibir(coluna_grupo):
 
 
 # Expander por Iniciativa (tabela única)
-with st.expander("Agrupado por Iniciativa (Resumo)", expanded=False):
+with st.expander("por **Iniciativa (Resumo)**", expanded=False):
     if "Nome da Proposta/Iniciativa Estruturante" in df_tetos.columns:
         colunas_iniciativa = [
             "Nome da Proposta/Iniciativa Estruturante",
@@ -451,7 +451,7 @@ with st.expander("Agrupado por Iniciativa (Resumo)", expanded=False):
     st.dataframe(df_total[colunas_iniciativa], use_container_width=True)
 
 
-with st.expander("Agrupado por Iniciativa (Detalhado)", expanded=False):
+with st.expander("por **Iniciativa (Detalhado)**", expanded=False):
     if (
         "id_iniciativa" in df_tetos.columns 
         and "UnidadeConservacao" in df_tetos.columns 
@@ -500,13 +500,13 @@ with st.expander("Agrupado por Iniciativa (Detalhado)", expanded=False):
             st.write("Distribuição por Unidade:")
             st.dataframe(df_agrupado[colunas_desejadas], use_container_width=True)
 
-with st.expander("Agrupado por UC (Unidade de Conservacao)", expanded=False):
+with st.expander("por **UC (Unidade de Conservacao)**", expanded=False):
     if "UnidadeConservacao" in df_tetos.columns:
         agrupar_e_exibir("UnidadeConservacao")
     else:
         st.info("Coluna 'UnidadeConservacao' não disponível.")
 
-with st.expander("Agrupado por GR (Gerência Regional)", expanded=False):
+with st.expander("por **GR (Gerência Regional)**", expanded=False):
     if "CNUC" in df_tetos.columns:
         conn = sqlite3.connect(DB_PATH)
         df_unidades = pd.read_sql_query("SELECT cnuc, gr FROM td_unidades", conn)
@@ -521,7 +521,7 @@ with st.expander("Agrupado por GR (Gerência Regional)", expanded=False):
 
 
 # expander por Demandante (Diretoria)
-with st.expander("Agrupado por Demandante (Diretoria)", expanded=False):
+with st.expander("por **Demandante (Diretoria)**", expanded=False):
     if "DEMANDANTE (diretoria)" in df_tetos.columns:
         agrupar_e_exibir("DEMANDANTE (diretoria)")
     else:
@@ -529,66 +529,130 @@ with st.expander("Agrupado por Demandante (Diretoria)", expanded=False):
 
 
 
-# # expander por Eixo Temático
-# with st.expander("Agrupado por Eixo Temático", expanded=False):
+
+# # -----------------------------------------------------------------------------
+# # Expander para exibir cada 'Processo' do SAMGE que seja coluna em tf_distribuicao_elegiveis
+# # -----------------------------------------------------------------------------
+# with st.expander("Visualizar por Processos (Eixos) do SAMGE", expanded=False):
+#     # 1) Ler tabela de processos (td_samge_processos) do banco
 #     conn = sqlite3.connect(DB_PATH)
-#     query = "SELECT * FROM td_samge_processos"
-#     df_samge = pd.read_sql_query(query, conn)
+#     df_processos = pd.read_sql_query("SELECT * FROM td_samge_processos", conn)
+    
+#     # 2) Ler a tabela de distribuição (tf_distribuicao_elegiveis)
+#     df_elegiveis = pd.read_sql_query("SELECT * FROM tf_distribuicao_elegiveis", conn)
 #     conn.close()
 
-#     if df_samge.empty:
-#         st.info("Nenhum dado encontrado na tabela 'td_samge_processos'.")
-#     else:
-#         # Lista das colunas numéricas que usaremos para somar/verificar distribuição
-#         colunas_monetarias = [
-#             "TetoTotalDisponivel",
-#             "SaldoADistribuir",
-#             "TetoSaldoDisponivel",
-#             "TetoPrevisto2025",
-#             "TetoPrevisto2026",
-#             "TetoPrevisto2027",
-#         ]
-        
-#         # 1) Fazemos um groupby por EixoTematico e somamos as colunas monetárias
-#         df_eixos_sum = (
-#             df_samge
-#             .groupby("EixoTematico")[colunas_monetarias]
-#             .sum(numeric_only=True)  # Garante que some apenas colunas numéricas
-#             .reset_index()
-#         )
-        
-#         # 2) Criamos uma coluna "Soma" para saber o total por Eixo
-#         df_eixos_sum["Soma"] = df_eixos_sum[colunas_monetarias].sum(axis=1)
-        
-#         # 3) Filtramos apenas Eixos com soma > 0
-#         df_eixos_filtrados = df_eixos_sum[df_eixos_sum["Soma"] > 0]
-        
-#         if df_eixos_filtrados.empty:
-#             st.info("Nenhum Eixo com valores distribuídos encontrado.")
-#         else:
-#             # 4) Para cada eixo que tem soma > 0, exibimos um "subexpander" ou subheader
-#             for eixo in df_eixos_filtrados["EixoTematico"]:
-#                 # Se quiser cada Eixo em seu próprio "expander", use:
-#                 with st.expander(f"Eixo Temático: {eixo}", expanded=False):
-                    
-#                     # Filtra as linhas do df_samge correspondentes a esse eixo
-#                     df_eixo = df_samge[df_samge["EixoTematico"] == eixo].copy()
-                    
-#                     # 5) Agrupa por UnidadeConservacao
-#                     colunas_agrupadas = ["UnidadeConservacao"] + colunas_monetarias
-#                     df_agrupado = (
-#                         df_eixo
-#                         .groupby("UnidadeConservacao", as_index=False)[colunas_monetarias]
-#                         .sum(numeric_only=True)
-#                     )
-                    
-#                     # 6) Formata valores monetários
-#                     for c_moeda in colunas_monetarias:
-#                         if c_moeda in df_agrupado.columns:
-#                             df_agrupado[c_moeda] = df_agrupado[c_moeda].apply(fmt_money)
-                    
-#                     # 7) Exibe a tabela final
-#                     st.dataframe(df_agrupado[colunas_agrupadas], use_container_width=True)
+#     # Verificamos se existe a coluna de 'Unidade de Conservação' (ou o nome exato)
+#     if "Unidade de Conservação" not in df_elegiveis.columns:
+#         st.warning("Coluna 'Unidade de Conservação' não encontrada em tf_distribuicao_elegiveis.")
+#         st.stop()
+
+#     # (Opcional) Converter a coluna do processo para numérico, se necessário, 
+#     # mas normalmente você fará isso apenas depois que souber qual coluna estamos somando.
+
+#     # 3) Para cada linha de df_processos, checamos se df_processos["nome"] está em df_elegiveis.columns
+#     col_uc = "Unidade de Conservação"  # Ajuste se seu DB estiver com outro nome
+#     lista_processos = df_processos[["id_p","nome"]].dropna()
+    
+#     processos_exibidos = 0  # Contador para saber se pelo menos um processo foi mostrado
+
+#     for idx, row in lista_processos.iterrows():
+#         processo_id = row["id_p"]
+#         processo_nome = row["nome"].strip()  # tira espaços extras, se houver
+
+#         # 4) Verifica se esse 'nome' é uma coluna em tf_distribuicao_elegiveis
+#         if processo_nome in df_elegiveis.columns:
+#             # Precisamos ter certeza de que a coluna é numérica ou convertê-la:
+#             df_elegiveis[processo_nome] = pd.to_numeric(df_elegiveis[processo_nome], errors="coerce").fillna(0)
+
+#             # 5) Checar se a soma total dessa coluna é > 0
+#             soma_total = df_elegiveis[processo_nome].sum()
+#             if soma_total > 0:
+#                 processos_exibidos += 1
+
+#                 # 6) Agrupar por Unidade de Conservação
+#                 df_agrupado = (
+#                     df_elegiveis
+#                     .groupby(col_uc, as_index=False)[processo_nome]
+#                     .sum()
+#                 )
+
+#                 # (Opcional) Formatar valor monetário, se fizer sentido (depende do que são esses números)
+#                 def fmt_money(x):
+#                     return f"R$ {x:,.2f}"
+
+#                 df_agrupado[processo_nome] = df_agrupado[processo_nome].apply(fmt_money)
+
+#                 # 7) Exibir um subheader com o nome do processo
+#                 st.subheader(f"[{processo_id}] {processo_nome}")
+#                 st.dataframe(df_agrupado, use_container_width=True)
+
+#     # 8) Caso nenhum processo tenha sido exibido, avisamos
+#     if processos_exibidos == 0:
+#         st.info("Nenhum processo do SAMGE encontrado com valores > 0 em tf_distribuicao_elegiveis.")
+
+
+st.divider()
+
+# título da seção
+st.markdown("###### Distribuição por Eixo Temático")
+
+# Expander principal
+with st.expander("por **Eixo Temático**", expanded=False):
+    # 1) Ler tabela de processos (td_samge_processos) do banco
+    conn = sqlite3.connect(DB_PATH)
+    df_processos = pd.read_sql_query("SELECT * FROM td_samge_processos", conn)
+    
+    # 2) Ler a tabela de distribuição (tf_distribuicao_elegiveis)
+    df_elegiveis = pd.read_sql_query("SELECT * FROM tf_distribuicao_elegiveis", conn)
+    conn.close()
+
+    # Verificamos se existe a coluna de 'Unidade de Conservação' (ou o nome exato)
+    if "Unidade de Conservação" not in df_elegiveis.columns:
+        st.warning("Coluna 'Unidade de Conservação' não encontrada em tf_distribuicao_elegiveis.")
+        st.stop()
+
+    # (Opcional) Converter a coluna do processo para numérico, se necessário, 
+    # mas normalmente você fará isso apenas depois que souber qual coluna estamos somando.
+
+    # 3) Para cada linha de df_processos, checamos se df_processos["nome"] está em df_elegiveis.columns
+    col_uc = "Unidade de Conservação"  # Ajuste se seu DB estiver com outro nome
+    lista_processos = df_processos[["id_p","nome"]].dropna()
+    
+    processos_exibidos = 0  # Contador para saber se pelo menos um processo foi mostrado
+
+    for idx, row in lista_processos.iterrows():
+        processo_id = row["id_p"]
+        processo_nome = row["nome"].strip()
+
+        if processo_nome in df_elegiveis.columns:
+            df_elegiveis[processo_nome] = pd.to_numeric(df_elegiveis[processo_nome], errors="coerce").fillna(0)
+            soma_total = df_elegiveis[processo_nome].sum()
+
+            if soma_total > 0:
+                processos_exibidos += 1
+
+                df_agrupado = (
+                    df_elegiveis
+                    .groupby([col_uc, "Nome da Proposta/Iniciativa Estruturante"], as_index=False)[processo_nome]
+                    .sum()
+                )
+
+                # Filtrar para mostrar somente as linhas com valores maiores que zero
+                df_agrupado = df_agrupado[df_agrupado[processo_nome] > 0]
+
+                # Exemplo: subheader (ou st.markdown)
+                st.subheader(f"{processo_nome}")
+                st.dataframe(df_agrupado, use_container_width=True, hide_index=True, column_config={
+                    col_uc: st.column_config.TextColumn(),
+                    "Nome da Proposta/Iniciativa Estruturante": st.column_config.TextColumn(),
+                    processo_nome: st.column_config.NumberColumn(format="accounting", help="R$")
+                })
+
+    if processos_exibidos == 0:
+        st.info("Nenhum processo com valores > 0.")
+
+
 
 
 
