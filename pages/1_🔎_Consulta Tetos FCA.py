@@ -50,7 +50,10 @@ def load_tetos_from_db() -> pd.DataFrame:
     if "DEMANDANTE (diretoria)" in df.columns and "setor" in st.session_state:
         df["DEMANDANTE (diretoria)"] = df["DEMANDANTE (diretoria)"].str.upper()
         setor_usuario = st.session_state["setor"].upper()
-        df = df[df["DEMANDANTE (diretoria)"] == setor_usuario]
+        
+        # Verifica se o perfil é admin ou cocam
+        if st.session_state["perfil"] not in ["admin", "cocam"]:
+            df = df[df["DEMANDANTE (diretoria)"] == setor_usuario]
     
     return df
 
