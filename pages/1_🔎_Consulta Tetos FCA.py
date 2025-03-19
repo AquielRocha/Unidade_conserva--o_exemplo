@@ -648,7 +648,7 @@ with st.expander("por **Eixo Temático**", expanded=False):
                 st.dataframe(df_agrupado, use_container_width=True, hide_index=True, column_config={
                     col_uc: st.column_config.TextColumn(),
                     "Nome da Proposta/Iniciativa Estruturante": st.column_config.TextColumn(),
-                    processo_nome: st.column_config.NumberColumn(format="accounting", help="R$")
+                    processo_nome: st.column_config.NumberColumn(format="localized", help="R$")
                 })
 
     if processos_exibidos == 0:
@@ -728,12 +728,12 @@ if st.session_state["usuario_logado"] and st.session_state["perfil"] == "admin" 
 
         st.dataframe(df_show, use_container_width=True, hide_index=True, column_config={
             "UnidadeConservacao": st.column_config.TextColumn(),
-            "TetoSaldo disponível": st.column_config.NumberColumn(format="accounting", help="R$"),
-            "TetoPrevisto 2025": st.column_config.NumberColumn(format="accounting", help="R$"),
-            "TetoPrevisto 2026": st.column_config.NumberColumn(format="accounting", help="R$"),
-            "TetoPrevisto 2027": st.column_config.NumberColumn(format="accounting", help="R$"),
-            "TetoTotalDisponivel": st.column_config.NumberColumn(format="accounting", help="R$"),
-            "A Distribuir": st.column_config.NumberColumn(format="accounting", help="R$"),
+            "TetoSaldo disponível": st.column_config.NumberColumn(format="localized", help="R$"),
+            "TetoPrevisto 2025": st.column_config.NumberColumn(format="localized", help="R$"),
+            "TetoPrevisto 2026": st.column_config.NumberColumn(format="localized", help="R$"),
+            "TetoPrevisto 2027": st.column_config.NumberColumn(format="localized", help="R$"),
+            "TetoTotalDisponivel": st.column_config.NumberColumn(format="localized", help="R$"),
+            "A Distribuir": st.column_config.NumberColumn(format="localized", help="R$"),
             "Nome da Proposta/Iniciativa Estruturante": st.column_config.TextColumn(),
             "DEMANDANTE (diretoria)": st.column_config.TextColumn(),
             "CNUC": st.column_config.TextColumn()
@@ -775,5 +775,50 @@ if st.session_state["usuario_logado"] and st.session_state["perfil"] == "admin" 
                 data=buffer,
                 file_name="consulta_tetos.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
+            )
+
+
+
+# se usuário for admin, exibe o expander abaixo
+if st.session_state["usuario_logado"] and st.session_state["perfil"] == "admin":
+
+    st.divider()
+
+    # seção de dados do banco de dados : tf_cadastro_regras_negocio
+    # gerar exportações excel e json dos cadastros de regras de negócio
+    with st.expander("📊 Dados do Banco de Dados: Regras de Negócio", expanded=False):
+        # 1) Ler tabela de regras de negócio (td_cadastro_regras_negocio) do banco
+        conn = sqlite3.connect(DB_PATH)
+        df_regras = pd.read_sql_query("SELECT * FROM tf_cadastro_regras_negocio", conn)
+        conn.close()
+
+        if df_regras.empty:
+            st.warning("Tabela 'tf_cadastro_regras_negocio' está vazia.")
+            st.stop()
+
+        # 2) Exibir a tabela de regras de negócio
+        st.dataframe(df_regras, use_container_width=True, hide_index=True)
+
+        # 3) Botões para download em CSV e JSON
+        col1, col2 = st.columns(2)
+
+        with col1:
+            csv_data_regras = df_regras.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                label="Baixar CSV - Regras de Negócio",
+                data=csv_data_regras,
+                file_name="regras_negocio.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+
+        with col2:
+            json_data_regras = df_regras.to_json(orient="records")
+            st.download_button(
+                label="Baixar JSON - Regras de Negócio",
+                data=json_data_regras,
+                file_name="regras_negocio.json",
+                mime="application/json",
                 use_container_width=True
             )

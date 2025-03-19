@@ -121,9 +121,15 @@ def update_insumo(insumo_id, elemento, espec_padrao, nome_insumo, espec_tecnica,
     conn.commit()
 
 def get_sugestoes_insumos(perfil):
+    """Retorna os insumos sugeridos em análise, filtrando conforme o perfil do usuário."""
+    # Se o perfil for admin ou cocam, retorna todos os insumos em análise
     if perfil == "cocam":
         query = "SELECT * FROM td_insumos WHERE situacao = 'em análise' ORDER BY id DESC"
         df = pd.read_sql_query(query, conn)
+    elif perfil == "admin":
+        query = "SELECT * FROM td_insumos WHERE situacao = 'em análise' ORDER BY id DESC"
+        df = pd.read_sql_query(query, conn)
+    # perfil comum: só vê os insumos que ele mesmo sugeriu
     else:
         query = "SELECT * FROM td_insumos WHERE situacao = 'em análise' AND registrado_por = ? ORDER BY id DESC"
         df = pd.read_sql_query(query, conn, params=[usuario_cpf])

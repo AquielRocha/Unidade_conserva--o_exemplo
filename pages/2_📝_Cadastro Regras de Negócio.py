@@ -822,10 +822,11 @@ with st.form("form_textos_resumo"):
         # Conectar ao banco para carregar a tabela de insumos
         conn = sqlite3.connect(DB_PATH)
         df_insumos_all = pd.read_sql_query(
-            "SELECT id, elemento_despesa, especificacao_padrao, descricao_insumo FROM td_insumos",
+            "SELECT id, elemento_despesa, especificacao_padrao, descricao_insumo FROM td_insumos WHERE situacao = 'ativo'",
             conn
         )
         conn.close()
+
 
         # Inicializar estado para armazenar insumos selecionados, se ainda não existir
         if "insumos_selecionados" not in st.session_state:
@@ -850,10 +851,10 @@ with st.form("form_textos_resumo"):
                     # Filtro de Elemento de Despesa
                     elementos_unicos = [
                         "Todos"] + sorted(df_insumos_all["elemento_despesa"].dropna().unique())
-                    # filtrar do dataframe o elemento "Bens"
-                    elementos_unicos = [el for el in elementos_unicos if el != "Bens"]
-                    # filtrar do dateframe o elemento "Serviços"
-                    elementos_unicos = [el for el in elementos_unicos if el != "Serviços"]
+                    # # filtrar do dataframe o elemento "Bens"
+                    # elementos_unicos = [el for el in elementos_unicos if el != "Bens"]
+                    # # filtrar do dateframe o elemento "Serviços"
+                    # elementos_unicos = [el for el in elementos_unicos if el != "Serviços"]
                     with col_filtro_elemento:
                         elemento_selecionado = st.selectbox(
                             "Selecione o Elemento de Despesa",
@@ -1488,12 +1489,12 @@ with st.form("form_textos_resumo"):
                     elif c == "Unidade de Conservação":
                         column_config[c] = st.column_config.TextColumn(label="Unidade de Conservação", disabled=True)
                     elif c == "TetoTotalDisponivel":
-                        column_config[c] = st.column_config.NumberColumn(label="Teto Total", disabled=True, format="accounting")
+                        column_config[c] = st.column_config.NumberColumn(label="Teto Total", disabled=True, format="localized")
                     elif c == "A Distribuir":
-                        column_config[c] = st.column_config.NumberColumn(label="Saldo a Distribuir", disabled=True, format="accounting")
+                        column_config[c] = st.column_config.NumberColumn(label="Saldo a Distribuir", disabled=True, format="localized")
                     else:
                         # Eixo
-                        column_config[c] = st.column_config.NumberColumn(label=c, format="accounting")
+                        column_config[c] = st.column_config.NumberColumn(label=c, format="localized")
 
                 # Se o usuário selecionou eixos específicos, filtra
                 if col_eixos_sess:
@@ -1935,6 +1936,10 @@ with st.form("form_textos_resumo"):
                 nome_forma = "Fundação de Apoio credenciada pelo ICMBio"
                 registros = st.session_state["formas_contratacao_detalhes"].setdefault(nome_forma, [])
 
+                # Se você quiser garantir um valor inicial "Não" caso não exista no Session State
+                if "txt_existe_projeto_val" not in st.session_state:
+                    st.session_state["txt_existe_projeto_val"] = "Não"
+
                 em_edicao_esta_forma = (
                     st.session_state["edit_mode"]
                     and st.session_state["edit_forma"] == nome_forma
@@ -1949,15 +1954,18 @@ with st.form("form_textos_resumo"):
                     existe_projeto_val = reg_edit.get("Existe Projeto CPPar?", "Não")
                     if existe_projeto_val not in ["Sim", "Não"]:
                         existe_projeto_val = "Não"
-                    existe_projeto_val = st.radio(
+                    # Atualiza session state explicitamente:
+                    st.session_state.txt_existe_projeto_val = existe_projeto_val  
+
+                    st.radio(
                         "Já existe projeto aprovado pela CPPar relacionado a este tema?",
                         ["Sim", "Não"],
-                        index=["Não", "Sim"].index(existe_projeto_val)
+                        key="txt_existe_projeto_val"
                     )
 
                     sei_projeto = reg_edit.get("SEI Projeto", "")
                     sei_ata = reg_edit.get("SEI Ata", "")
-                    if existe_projeto_val == "Sim":
+                    if st.session_state.txt_existe_projeto_val == "Sim":
                         sei_projeto = st.text_input("Número SEI do Projeto", value=sei_projeto)
                         sei_ata = st.text_input("Número SEI da Ata/Decisão", value=sei_ata)
 
@@ -1965,20 +1973,26 @@ with st.form("form_textos_resumo"):
                     if in_concorda_val not in ["Sim", "Não"]:
                         in_concorda_val = "Não"
 
-                    in_concorda_val = st.radio(
+                    # Aqui idem:
+                    if "txt_in_concorda_val" not in st.session_state:
+                        st.session_state["txt_in_concorda_val"] = in_concorda_val
+                    else:
+                        st.session_state["txt_in_concorda_val"] = in_concorda_val
+
+                    st.radio(
                         "A iniciativa está de acordo com a IN nº 18/2018 e 12/2024?",
                         ["Sim", "Não"],
-                        index=["Não", "Sim"].index(in_concorda_val)
+                        key="txt_in_concorda_val"
                     )
                     justificativa = st.text_area("Justificativa", value=reg_edit.get("Justificativa", ""))
 
                     colA, colB = st.columns(2)
                     if colA.button("Salvar Edição"):
                         registros[i] = {
-                            "Existe Projeto CPPar?": existe_projeto_val,
-                            "SEI Projeto": sei_projeto.strip() if existe_projeto_val == "Sim" else "",
-                            "SEI Ata": sei_ata.strip() if existe_projeto_val == "Sim" else "",
-                            "Concorda com IN18/2018 e 12/2024?": in_concorda_val,
+                            "Existe Projeto CPPar?": st.session_state.txt_existe_projeto_val,
+                            "SEI Projeto": sei_projeto.strip() if st.session_state.txt_existe_projeto_val == "Sim" else "",
+                            "SEI Ata": sei_ata.strip() if st.session_state.txt_existe_projeto_val == "Sim" else "",
+                            "Concorda com IN18/2018 e 12/2024?": st.session_state.txt_in_concorda_val,
                             "Justificativa": justificativa.strip()
                         }
                         st.session_state["formas_contratacao_detalhes"][nome_forma] = registros
@@ -1989,7 +2003,7 @@ with st.form("form_textos_resumo"):
 
                 else:
                     st.markdown("###### Incluir Novo Registro (Fundação de Apoio)")
-                    # Função para adicionar novo registro
+
                     def add_fundacao_apoio():
                         novo_reg = {
                             "Existe Projeto CPPar?": st.session_state.txt_existe_projeto_val,
@@ -2003,15 +2017,30 @@ with st.form("form_textos_resumo"):
                         registros.append(novo_reg)
                         st.session_state["formas_contratacao_detalhes"][nome_forma] = registros
 
+                        # Reseta para não
                         st.session_state.txt_existe_projeto_val = "Não"
                         st.session_state.txt_sei_projeto = ""
                         st.session_state.txt_sei_ata = ""
                         st.session_state.txt_in_concorda_val = "Não"
                         st.session_state.txt_justificativa_fundacao = ""
 
+                    # Garante que esses valores existam no Session State antes de criar os widgets
+                    if "txt_existe_projeto_val" not in st.session_state:
+                        st.session_state.txt_existe_projeto_val = "Não"
+                    if "txt_in_concorda_val" not in st.session_state:
+                        st.session_state.txt_in_concorda_val = "Não"
+                    if "txt_justificativa_fundacao" not in st.session_state:
+                        st.session_state.txt_justificativa_fundacao = ""
+                    if "txt_sei_projeto" not in st.session_state:
+                        st.session_state.txt_sei_projeto = ""
+                    if "txt_sei_ata" not in st.session_state:
+                        st.session_state.txt_sei_ata = ""
+
+                    # REMOVA o index=1 e deixe que o valor do Session State seja o default.
                     st.radio(
                         "Já existe projeto aprovado pela CPPar relacionado a este tema?",
-                        ["Sim", "Não"], index=1, key="txt_existe_projeto_val"
+                        ["Sim", "Não"],
+                        key="txt_existe_projeto_val"
                     )
                     if st.session_state.txt_existe_projeto_val == "Sim":
                         st.text_input("Número SEI do Projeto", key="txt_sei_projeto")
@@ -2019,7 +2048,8 @@ with st.form("form_textos_resumo"):
 
                     st.radio(
                         "A iniciativa está de acordo com a IN nº 18/2018 e 12/2024?",
-                        ["Sim", "Não"], key="txt_in_concorda_val"
+                        ["Sim", "Não"],
+                        key="txt_in_concorda_val"
                     )
                     st.text_area("Justificativa", key="txt_justificativa_fundacao")
 
@@ -2027,7 +2057,6 @@ with st.form("form_textos_resumo"):
                         pass
 
                 st.markdown("---")
-                # Lista
                 if registros:
                     st.write("###### Registros Adicionados")
                     for i, reg in enumerate(registros):
@@ -2047,6 +2076,7 @@ with st.form("form_textos_resumo"):
                             del registros[i]
                             st.session_state["formas_contratacao_detalhes"][nome_forma] = registros
                             st.rerun()
+
 
 
         def expander_fundacao_amparo():
