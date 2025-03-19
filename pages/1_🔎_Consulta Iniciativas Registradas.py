@@ -49,6 +49,10 @@ else:
     if st.session_state["perfil"] == "admin":
         df_filtrado = df  # Admin vê todos os registros
         df = df_filtrado
+    # perfil cocam também vê todos os registros
+    elif st.session_state["perfil"] == "cocam":
+        df_filtrado = df
+        df = df_filtrado
     else:
         df_filtrado = df[df["DEMANDANTE"] == st.session_state["setor"]]
         df = df_filtrado
