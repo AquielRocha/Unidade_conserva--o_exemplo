@@ -19,9 +19,9 @@ if "usuario_logado" not in st.session_state or not st.session_state["usuario_log
     st.warning("🔒 Acesso negado! Faça login na página principal para acessar esta seção.")
     st.stop()
 
-if st.session_state["perfil"] != "admin":
-    st.warning("🔒 Acesso negado! Você não tem permissão para acessar esta seção.")
-    st.stop()
+# if st.session_state["perfil"] != "admin":
+#     st.warning("🔒 Acesso negado! Você não tem permissão para acessar esta seção.")
+#     st.stop()
 
 #######################################
 # 2) Configurações Gerais da Página   #
@@ -680,103 +680,104 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
+# se usuário for admin, exibe o expander abaixo
+if st.session_state["usuario_logado"] and st.session_state["perfil"] == "admin":
 
 
-
-#####################################
-# 10) Exibição Detalhada e Download #
-#####################################
-st.divider()
-
-# expander para mostrar os dados disponíveis para download
-with st.expander("📥 Dados Disponíveis para Download", expanded=False):
-    col1, col2 = st.columns(2)
-    with col1:
-        st.info(
-            """
-            Os dados disponíveis para download incluem os tetos financeiros por unidade de conservação, 
-            iniciativa e ano.
-            """
-        )
-    with col2:
-        st.info(
-            """
-            Você pode baixar os dados em formato CSV, JSON ou Excel.
-            """
-        )
-
+    #####################################
+    # 10) Exibição Detalhada e Download #
+    #####################################
     st.divider()
-    st.markdown("##### Tabela de Tetos Financeiros e Distribuição por Eixo Temático")
 
-    # Consultar tf_distribuicao_elegiveis completa
-    conn = sqlite3.connect(DB_PATH)
-    df_tetos_completo = pd.read_sql_query("SELECT * FROM tf_distribuicao_elegiveis", conn)
-    conn.close()
+    # expander para mostrar os dados disponíveis para download
+    with st.expander("📥 Dados Disponíveis para Download", expanded=False):
+        col1, col2 = st.columns(2)
+        with col1:
+            st.info(
+                """
+                Os dados disponíveis para download incluem os tetos financeiros por unidade de conservação, 
+                iniciativa e ano.
+                """
+            )
+        with col2:
+            st.info(
+                """
+                Você pode baixar os dados em formato CSV, JSON ou Excel.
+                """
+            )
 
-    df_show = df_tetos_completo.copy().reset_index(drop=True)
+        st.divider()
+        st.markdown("##### Tabela de Tetos Financeiros e Distribuição por Eixo Temático")
 
-    # Insere coluna "No" manual
-    df_show.insert(0, "No", range(1, len(df_show) + 1))
+        # Consultar tf_distribuicao_elegiveis completa
+        conn = sqlite3.connect(DB_PATH)
+        df_tetos_completo = pd.read_sql_query("SELECT * FROM tf_distribuicao_elegiveis", conn)
+        conn.close()
 
-    # formatar texto coluna DEMANDANTE (diretoria) com uppercase
-    if "DEMANDANTE (diretoria)" in df_show.columns:
-        df_show["DEMANDANTE (diretoria)"] = df_show["DEMANDANTE (diretoria)"].str.upper()
-    # formatar texto coluna UnidadeConservacao com title case
-    if "UnidadeConservacao" in df_show.columns:
-        df_show["UnidadeConservacao"] = df_show["UnidadeConservacao"].str.title()
-    # formatar texto coluna Nome da Proposta/Iniciativa Estruturante com title case
-    if "Nome da Proposta/Iniciativa Estruturante" in df_show.columns:
-        df_show["Nome da Proposta/Iniciativa Estruturante"] = df_show["Nome da Proposta/Iniciativa Estruturante"].str.title()
+        df_show = df_tetos_completo.copy().reset_index(drop=True)
 
-    st.dataframe(df_show, use_container_width=True, hide_index=True, column_config={
-        "No": st.column_config.NumberColumn(format="%d"),
-        "UnidadeConservacao": st.column_config.TextColumn(),
-        "TetoSaldo disponível": st.column_config.NumberColumn(format="accounting", help="R$"),
-        "TetoPrevisto 2025": st.column_config.NumberColumn(format="accounting", help="R$"),
-        "TetoPrevisto 2026": st.column_config.NumberColumn(format="accounting", help="R$"),
-        "TetoPrevisto 2027": st.column_config.NumberColumn(format="accounting", help="R$"),
-        "TetoTotalDisponivel": st.column_config.NumberColumn(format="accounting", help="R$"),
-        "A Distribuir": st.column_config.NumberColumn(format="accounting", help="R$"),
-        "Nome da Proposta/Iniciativa Estruturante": st.column_config.TextColumn(),
-        "DEMANDANTE (diretoria)": st.column_config.TextColumn(),
-        "CNUC": st.column_config.TextColumn()
-    })
+        # Insere coluna "No" manual
+        df_show.insert(0, "No", range(1, len(df_show) + 1))
 
-    col1, col2, col3 = st.columns(3)
+        # formatar texto coluna DEMANDANTE (diretoria) com uppercase
+        if "DEMANDANTE (diretoria)" in df_show.columns:
+            df_show["DEMANDANTE (diretoria)"] = df_show["DEMANDANTE (diretoria)"].str.upper()
+        # formatar texto coluna UnidadeConservacao com title case
+        if "UnidadeConservacao" in df_show.columns:
+            df_show["UnidadeConservacao"] = df_show["UnidadeConservacao"].str.title()
+        # formatar texto coluna Nome da Proposta/Iniciativa Estruturante com title case
+        if "Nome da Proposta/Iniciativa Estruturante" in df_show.columns:
+            df_show["Nome da Proposta/Iniciativa Estruturante"] = df_show["Nome da Proposta/Iniciativa Estruturante"].str.title()
 
-    with col1:
-        # Botão de download
-        csv_data = df_show.to_csv(index=False).encode("utf-8")
-        st.download_button(
-            label="Baixar CSV",
-            data=csv_data,
-            file_name="consulta_tetos.csv",
-            mime="text/csv",
-            use_container_width=True
-        )
+        st.dataframe(df_show, use_container_width=True, hide_index=True, column_config={
+            "No": st.column_config.NumberColumn(format="%d"),
+            "UnidadeConservacao": st.column_config.TextColumn(),
+            "TetoSaldo disponível": st.column_config.NumberColumn(format="accounting", help="R$"),
+            "TetoPrevisto 2025": st.column_config.NumberColumn(format="accounting", help="R$"),
+            "TetoPrevisto 2026": st.column_config.NumberColumn(format="accounting", help="R$"),
+            "TetoPrevisto 2027": st.column_config.NumberColumn(format="accounting", help="R$"),
+            "TetoTotalDisponivel": st.column_config.NumberColumn(format="accounting", help="R$"),
+            "A Distribuir": st.column_config.NumberColumn(format="accounting", help="R$"),
+            "Nome da Proposta/Iniciativa Estruturante": st.column_config.TextColumn(),
+            "DEMANDANTE (diretoria)": st.column_config.TextColumn(),
+            "CNUC": st.column_config.TextColumn()
+        })
 
-    with col2:
-        # Transformar os dados para o formato JSON
-        df_json_corrected = df_tetos_completo.to_json(orient="records")
-        st.download_button(
-            label="Baixar JSON",
-            data=df_json_corrected,
-            file_name="consulta_tetos.json",
-            mime="application/json",
-            use_container_width=True
-        )
+        col1, col2, col3 = st.columns(3)
 
-    import io
+        with col1:
+            # Botão de download
+            csv_data = df_show.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                label="Baixar CSV",
+                data=csv_data,
+                file_name="consulta_tetos.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
 
-    with col3:
-        # Botão de download em Excel
-        buffer = io.BytesIO()
-        with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-            df_show.to_excel(writer, index=False)
-        st.download_button(
-            label="Baixar Excel",
-            data=buffer,
-            file_name="consulta_tetos.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True
-        )
+        with col2:
+            # Transformar os dados para o formato JSON
+            df_json_corrected = df_tetos_completo.to_json(orient="records")
+            st.download_button(
+                label="Baixar JSON",
+                data=df_json_corrected,
+                file_name="consulta_tetos.json",
+                mime="application/json",
+                use_container_width=True
+            )
+
+        import io
+
+        with col3:
+            # Botão de download em Excel
+            buffer = io.BytesIO()
+            with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                df_show.to_excel(writer, index=False)
+            st.download_button(
+                label="Baixar Excel",
+                data=buffer,
+                file_name="consulta_tetos.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
+            )
