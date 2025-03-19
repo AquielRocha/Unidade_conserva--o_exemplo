@@ -105,6 +105,8 @@ with col_btn:
         st.session_state["filtro_uc"] = "Todas"
         st.session_state["filtro_demandante"] = "Todos"
         st.session_state["filtro_somente_positivos"] = False
+        st.session_state["filtro_gr"] = "Todas"
+        # E recarreg
         st.rerun()
 
 # Filtro Iniciativa
@@ -414,7 +416,7 @@ def agrupar_e_exibir(coluna_grupo):
     for c in col_monetarias:
         df_ag[c] = df_ag[c].apply(fmt_money)
 
-    st.dataframe(df_ag, use_container_width=True)
+    st.dataframe(df_ag, use_container_width=True, hide_index=True)
 
 
 # Expander por Iniciativa (tabela única)
@@ -432,7 +434,7 @@ with st.expander("por **Iniciativa (Resumo)**", expanded=False):
         df_iniciativas = df_tetos.groupby("Nome da Proposta/Iniciativa Estruturante", as_index=False)[colunas_iniciativa].sum(numeric_only=True)
         for c_moeda in colunas_iniciativa[1:]:
             df_iniciativas[c_moeda] = df_iniciativas[c_moeda].apply(fmt_money)
-        st.dataframe(df_iniciativas, use_container_width=True)
+        st.dataframe(df_iniciativas, use_container_width=True, hide_index=True)
 
     # mostra totalizações
     colunas_total = [
@@ -448,7 +450,7 @@ with st.expander("por **Iniciativa (Resumo)**", expanded=False):
         df_total[c_moeda] = df_total[c_moeda].apply(fmt_money)
     df_total.insert(0, "Nome da Proposta/Iniciativa Estruturante", "Total Geral")
     st.write("Total Geral:")
-    st.dataframe(df_total[colunas_iniciativa], use_container_width=True)
+    st.dataframe(df_total[colunas_iniciativa], use_container_width=True, hide_index=True)
 
 
 with st.expander("por **Iniciativa (Detalhado)**", expanded=False):
@@ -463,7 +465,7 @@ with st.expander("por **Iniciativa (Detalhado)**", expanded=False):
             iniciativa_id = row["id_iniciativa"]
             iniciativa_nome = row["Nome da Proposta/Iniciativa Estruturante"]
 
-            st.subheader(f"Iniciativa: {iniciativa_nome}")
+            st.subheader(f"{iniciativa_nome.title()}")
             df_iniciativa = df_tetos[df_tetos["id_iniciativa"] == iniciativa_id]
             # Mostrar totalizações por iniciativa, com cada iniciativa em uma linha
             colunas_iniciativa = [
@@ -478,7 +480,7 @@ with st.expander("por **Iniciativa (Detalhado)**", expanded=False):
             for c_moeda in colunas_iniciativa:
                 df_total[c_moeda] = df_total[c_moeda].apply(fmt_money)
             st.write("Total da Iniciativa:")
-            st.dataframe(df_total, use_container_width=True)
+            st.dataframe(df_total, use_container_width=True, hide_index=True)
 
             # Agrupar e somar apenas as colunas desejadas por unidade
             colunas_desejadas = [
@@ -498,7 +500,7 @@ with st.expander("por **Iniciativa (Detalhado)**", expanded=False):
             for c_moeda in colunas_desejadas[1:]:
                 df_agrupado[c_moeda] = df_agrupado[c_moeda].apply(fmt_money)
             st.write("Distribuição por Unidade:")
-            st.dataframe(df_agrupado[colunas_desejadas], use_container_width=True)
+            st.dataframe(df_agrupado[colunas_desejadas], use_container_width=True, hide_index=True)
 
 with st.expander("por **UC (Unidade de Conservacao)**", expanded=False):
     if "UnidadeConservacao" in df_tetos.columns:
