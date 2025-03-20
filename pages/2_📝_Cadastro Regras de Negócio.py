@@ -81,7 +81,7 @@ def carregar_dados_iniciativa(id_iniciativa: int) -> dict | None:
     Carrega a última linha de tf_cadastro_regras_negocio para a iniciativa dada.
     Retorna um dicionário com as colunas esperadas ou None se não existir.
     """
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH) 
     query = """
         SELECT *
         FROM tf_cadastro_regras_negocio
@@ -822,7 +822,7 @@ with st.form("form_textos_resumo"):
         # Conectar ao banco para carregar a tabela de insumos
         conn = sqlite3.connect(DB_PATH)
         df_insumos_all = pd.read_sql_query(
-            "SELECT id, elemento_despesa, especificacao_padrao, descricao_insumo FROM td_insumos WHERE situacao = 'ativo'",
+            "SELECT id, elemento_despesa, especificacao_padrao, descricao_insumo, preco_referencia FROM td_insumos WHERE situacao = 'ativo'",
             conn
         )
         conn.close()
@@ -851,10 +851,6 @@ with st.form("form_textos_resumo"):
                     # Filtro de Elemento de Despesa
                     elementos_unicos = [
                         "Todos"] + sorted(df_insumos_all["elemento_despesa"].dropna().unique())
-                    # # filtrar do dataframe o elemento "Bens"
-                    # elementos_unicos = [el for el in elementos_unicos if el != "Bens"]
-                    # # filtrar do dateframe o elemento "Serviços"
-                    # elementos_unicos = [el for el in elementos_unicos if el != "Serviços"]
                     with col_filtro_elemento:
                         elemento_selecionado = st.selectbox(
                             "Selecione o Elemento de Despesa",
@@ -888,8 +884,10 @@ with st.form("form_textos_resumo"):
                     df_combo = df_filtrado.rename(
                         columns={
                             "id": "ID",
+                            "elemento_despesa": "Elemento de Despesa",
                             "especificacao_padrao": "Especificação Padrão",
-                            "descricao_insumo": "Insumo"
+                            "descricao_insumo": "Insumo",
+                            "preco_referencia": "Preço de Referência"
                         }
                     )
 
@@ -903,18 +901,16 @@ with st.form("form_textos_resumo"):
                     # Exibir Data Editor dentro de um formulário
                     with st.form(f"form_insumos_{i}_{ac_id}"):
                         edited_ins = st.data_editor(
-                            df_combo[["ID","Especificação Padrão", "Insumo", "Selecionado"]],
+                            df_combo[["ID", "Elemento de Despesa", "Especificação Padrão", "Insumo", "Preço de Referência", "Selecionado"]],
                             column_config={
-                                "ID": st.column_config.TextColumn("Cód. Insumo", disabled=True),
                                 "Insumo": st.column_config.TextColumn("Descrição do Insumo", disabled=True),
-                                "Selecionado": st.column_config.CheckboxColumn("Selecionar")
+                                "Selecionado": st.column_config.CheckboxColumn("Selecionar"),
+                                "Preço de Referência": st.column_config.NumberColumn("Preço de Referência", format="localized")
                             },
                             hide_index=True,
                             use_container_width=True,
                             key=f"editor_ins_{i}_{ac_id}"
                         )
-
-
 
                         col1, col2 = st.columns([1, 1])
                         with col1:
@@ -953,15 +949,7 @@ with st.form("form_textos_resumo"):
                             # informar a importancia de salvar antes de utilizar outro filtro
                             st.warning("Salve as seleções antes de utilizar outro filtro.", icon="⚠️")
 
-                    # # Botão para limpar todas as seleções de insumos dessa ação
-                    # if st.button("Limpar Lista de Insumos", key=f"limpar_{i}_{ac_id}"):
-                    #     st.session_state["insumos_selecionados"][ac_id] = set()
-                    #     ac_data["insumos"] = []
-                    #     st.success("Todos os insumos foram removidos para esta ação!")
-
                     st.write("---")
-
-
 
 
 

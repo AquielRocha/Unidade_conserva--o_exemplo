@@ -692,14 +692,22 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
+
+# -----------------------------------------------------------------------------
+# 12) Exibição detalhada e download dos dados (somente para admin ou cocam)
+# -----------------------------------------------------------------------------
+
+
 # se usuário for admin, exibe o expander abaixo
-if st.session_state["usuario_logado"] and st.session_state["perfil"] == "admin" or st.session_state["perfil"] == "comum":
+if st.session_state["usuario_logado"] and st.session_state["perfil"] == "admin" or st.session_state["perfil"] == "cocam":
 
 
     #####################################
     # 10) Exibição Detalhada e Download #
     #####################################
     st.divider()
+
+    st.warning("Seção disponível apenas para usuários com perfil cocam ou admin")
 
     # expander para mostrar os dados disponíveis para download
     with st.expander("📥 Dados Disponíveis para Download", expanded=False):
@@ -791,15 +799,23 @@ if st.session_state["usuario_logado"] and st.session_state["perfil"] == "admin" 
             )
 
 
+ 
+ 
+# -----------------------------------------------------------------------------
+# 13) Exibição de dados do banco de dados (somente para admin)
+# ----------------------------------------------------------------------------- 
+
 
 # se usuário for admin, exibe o expander abaixo
 if st.session_state["usuario_logado"] and st.session_state["perfil"] == "admin":
 
-    st.divider()
+    # st.divider()
 
     # seção de dados do banco de dados : tf_cadastro_regras_negocio
     # gerar exportações excel e json dos cadastros de regras de negócio
-    with st.expander("📊 Dados do Banco de Dados: Regras de Negócio", expanded=False):
+    with st.expander("📊 Dados do Banco de Dados", expanded=False):
+
+        st.markdown("##### Tabela Cadastro de Regras de Negócio")
         # 1) Ler tabela de regras de negócio (td_cadastro_regras_negocio) do banco
         conn = sqlite3.connect(DB_PATH)
         df_regras = pd.read_sql_query("SELECT * FROM tf_cadastro_regras_negocio", conn)
@@ -807,22 +823,23 @@ if st.session_state["usuario_logado"] and st.session_state["perfil"] == "admin":
 
         if df_regras.empty:
             st.warning("Tabela 'tf_cadastro_regras_negocio' está vazia.")
-            st.stop()
+            
 
         # 2) Exibir a tabela de regras de negócio
         st.dataframe(df_regras, use_container_width=True, hide_index=True)
 
-        # 3) Botões para download em CSV e JSON
-        col1, col2 = st.columns(2)
+        # 3) Botões para download em CSV, JSON e Excel
+        col1, col2, col3 = st.columns(3)
 
         with col1:
             csv_data_regras = df_regras.to_csv(index=False).encode("utf-8")
             st.download_button(
                 label="Baixar CSV - Regras de Negócio",
                 data=csv_data_regras,
-                file_name="regras_negocio.csv",
+                file_name="td_cadastro_regras_negocio.csv",
                 mime="text/csv",
-                use_container_width=True
+                use_container_width=True,
+                key="download_csv_regras"
             )
 
         with col2:
@@ -830,11 +847,294 @@ if st.session_state["usuario_logado"] and st.session_state["perfil"] == "admin":
             st.download_button(
                 label="Baixar JSON - Regras de Negócio",
                 data=json_data_regras,
-                file_name="regras_negocio.json",
+                file_name="td_cadastro_regras_negocio.json",
                 mime="application/json",
-                use_container_width=True
+                use_container_width=True,
+                key="download_json_regras"
+            )
+
+        with col3:
+            buffer = io.BytesIO()
+            with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                df_regras.to_excel(writer, index=False)
+            st.download_button(
+                label="Baixar Excel - Regras de Negócio",
+                data=buffer,
+                file_name="td_cadastro_regras_negocio.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+                key="download_excel_regras"
+            )
+
+
+            
+
+        # seção de dados do banco de dados : tf_cadastro_regras_negocio
+        # gerar exportações excel e json dos dados da coluna regra
+        st.divider()
+        st.markdown("##### Tabela de Regras de Negócio")
+
+        # 1) Ler tabela de regras de negócio (tf_cadastro_regras_negocio) do banco
+        conn = sqlite3.connect(DB_PATH)
+        df_regras = pd.read_sql_query("SELECT * FROM tf_cadastro_regras_negocio", conn)
+        df_insumos = pd.read_sql_query("SELECT * FROM td_insumos", conn)
+        df_acoes = pd.read_sql_query("SELECT * FROM td_samge_acoes_manejo", conn)
+        df_iniciativas = pd.read_sql_query("SELECT * FROM td_iniciativas", conn)
+        conn.close()
+
+        if df_regras.empty:
+            st.warning("Tabela 'tf_cadastro_regras_negocio' está vazia.")
+        else:
+            # 2) Filtrar para exibir somente o registro mais recente de cada iniciativa
+            df_regras['data_hora'] = pd.to_datetime(df_regras['data_hora'])
+            df_regras = df_regras.sort_values('data_hora').groupby('id_iniciativa').tail(1)
+
+            # 3) Processar a coluna 'regra' que está em formato JSON
+            def process_regra(regra_json):
+                regra = json.loads(regra_json)
+                objetivo_geral = regra.get("objetivo_geral", "")
+                objetivos_especificos = regra.get("objetivos_especificos", [])
+                eixos_tematicos = regra.get("eixos_tematicos", [])
+                acoes = regra.get("acoes", [])
+                insumos = regra.get("insumos", [])
+                return objetivo_geral, objetivos_especificos, eixos_tematicos, acoes, insumos
+
+        processed_data = []
+        for _, row in df_regras.iterrows():
+            objetivo_geral, objetivos_especificos, eixos_tematicos, acoes, insumos = process_regra(row['regra'])
+            nome_iniciativa = df_iniciativas[df_iniciativas['id_iniciativa'] == row['id_iniciativa']]['nome_iniciativa'].values[0] if not df_iniciativas[df_iniciativas['id_iniciativa'] == row['id_iniciativa']].empty else ""
+            for objetivo in objetivos_especificos:
+                for eixo in eixos_tematicos:
+                    for acao in acoes:
+                        acao_nome = df_acoes[df_acoes['id_ac'] == int(acao)]['nome'].values[0] if not df_acoes[df_acoes['id_ac'] == int(acao)].empty else acao
+                        for insumo in insumos:
+                            insumo_data = df_insumos[df_insumos['id'] == int(insumo)]
+                            insumo_nome = insumo_data['descricao_insumo'].values[0] if not insumo_data.empty else insumo
+                            elemento_despesa = insumo_data['elemento_despesa'].values[0] if not insumo_data.empty else ""
+                            especificacao_padrao = insumo_data['especificacao_padrao'].values[0] if not insumo_data.empty else ""
+                            preco_referencia = insumo_data['preco_referencia'].values[0] if not insumo_data.empty else ""
+                            processed_data.append([
+                                row['id_iniciativa'], nome_iniciativa, objetivo_geral, objetivo, eixo['id_eixo'], eixo['nome_eixo'], acao, acao_nome, insumo, insumo_nome, elemento_despesa, especificacao_padrao, preco_referencia
+                            ])
+
+        df_processed = pd.DataFrame(processed_data, columns=['id_iniciativa', 'nome_iniciativa', 'objetivo_geral', 'objetivo_especifico', 'id_eixo_tematico', 'eixo_tematico', 'id_acao', 'acao', 'id_insumo', 'insumo', 'elemento_despesa', 'especificacao_padrao', 'preco_referencia'])
+
+        # 4) Exibir a tabela de regras de negócio
+        st.dataframe(df_processed, use_container_width=True, hide_index=True)
+
+        # 5) colunas para botão de download em CSV, JSON e Excel da tabela inteira
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            csv_data_regras = df_processed.to_csv(index=False).encode("utf-8")
+            st.download_button(
+            label="Baixar CSV - Regras de Negócio",
+            data=csv_data_regras,
+            file_name="regras_negocio.csv",
+            mime="text/csv",
+            use_container_width=True,
+            key="download_csv_regras_regras"
+            )
+        
+        with col2:
+            json_data_regras = df_processed.to_json(orient="records")
+            st.download_button(
+            label="Baixar JSON - Regras de Negócio",
+            data=json_data_regras,
+            file_name="regras_negocio.json",
+            mime="application/json",
+            use_container_width=True,
+            key="download_json_regras_regras"
+            )
+        
+        with col3:
+            buffer = io.BytesIO()
+            with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                df_processed.to_excel(writer, index=False)
+            st.download_button(
+                label="Baixar Excel - Regras de Negócio",
+                data=buffer,
+                file_name="regras_negocio.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+                key="download_excel_regras_regras"
             )
 
 
 
+       
+
+
+        # seção de dados do banco de dados : tf_distribuicao_elegiveis
+        # gerar exportações excel e json dos tetos financeiros e distribuição por eixo temático
+        st.divider()
+        st.markdown("##### Tabela de Distribuição por Eixo Temático")
+        # 1) Ler tabela de distribuição (tf_distribuicao_elegiveis) do banco
+        conn = sqlite3.connect(DB_PATH)
+        df_tetos_completo = pd.read_sql_query("SELECT * FROM tf_distribuicao_elegiveis", conn)
+        conn.close()
+        if df_tetos_completo.empty:
+            st.warning("Tabela 'tf_distribuicao_elegiveis' está vazia.")
+        # 2) Exibir a tabela de distribuição
+        st.dataframe(df_tetos_completo, use_container_width=True, hide_index=True, column_config={
+            "UnidadeConservacao": st.column_config.TextColumn(),
+            "TetoSaldo disponível": st.column_config.NumberColumn(format="localized", help="R$"),
+            "TetoPrevisto 2025": st.column_config.NumberColumn(format="localized", help="R$"),
+            "TetoPrevisto 2026": st.column_config.NumberColumn(format="localized", help="R$"),
+            "TetoPrevisto 2027": st.column_config.NumberColumn(format="localized", help="R$"),
+            "TetoTotalDisponivel": st.column_config.NumberColumn(format="localized", help="R$"),
+            "A Distribuir": st.column_config.NumberColumn(format="localized", help="R$"),
+            "Nome da Proposta/Iniciativa Estruturante": st.column_config.TextColumn(),
+            "DEMANDANTE (diretoria)": st.column_config.TextColumn(),
+            "CNUC": st.column_config.TextColumn()
+        })
+        # 3) colunas para botão de download em CSV, JSON e Excel da tabela inteira
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            csv_data_tetos = df_tetos_completo.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                label="Baixar CSV - Distribuição por Eixo Temático",
+                data=csv_data_tetos,
+                file_name="distribuicao_eixo_tematico.csv",
+                mime="text/csv",
+                use_container_width=True,
+                key="download_csv_tetos"
+            )
+        with col2:
+            json_data_tetos = df_tetos_completo.to_json(orient="records")
+            st.download_button(
+                label="Baixar JSON - Distribuição por Eixo Temático",
+                data=json_data_tetos,
+                file_name="distribuicao_eixo_tematico.json",
+                mime="application/json",
+                use_container_width=True,
+                key="download_json_tetos"
+            )
+        with col3:
+            buffer = io.BytesIO()
+            with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                df_tetos_completo.to_excel(writer, index=False)
+            st.download_button(
+                label="Baixar Excel - Distribuição por Eixo Temático",
+                data=buffer,
+                file_name="distribuicao_eixo_tematico.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+                key="download_excel_tetos"
+            )
+
+
+        # seção de dados do banco de dados : td_dados_base_iniciativas
+        # gerar exportações excel e json dos valores alocados por iniciativa
+        st.divider()
+        st.markdown("##### Tabela de Valores Alocados por Iniciativa")
+        # 1) Ler tabela de alocação (td_dados_base_iniciativas) do banco
+        conn = sqlite3.connect(DB_PATH)
+        df_iniciativas = pd.read_sql_query("SELECT * FROM td_dados_base_iniciativas", conn)
+        conn.close()
+        if df_iniciativas.empty:
+            st.warning("Tabela 'td_dados_base_iniciativas' está vazia.")
+        # 2) Exibir a tabela de alocação    
+        st.dataframe(df_iniciativas, use_container_width=True, hide_index=True, column_config={
+            "Nome da Proposta/Iniciativa Estruturante": st.column_config.TextColumn(),
+            "Valor Alocado": st.column_config.NumberColumn(format="localized", help="R$"),
+            "Ano": st.column_config.TextColumn()
+        })
+        # 3) colunas para botão de download em CSV, JSON e Excel da tabela inteira
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            csv_data_iniciativas = df_iniciativas.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                label="Baixar CSV - Valores Alocados por Iniciativa",
+                data=csv_data_iniciativas,
+                file_name="valores_alocados_iniciativa.csv",
+                mime="text/csv",
+                use_container_width=True,
+                key="download_csv_iniciativas"
+            )
+        with col2:
+            json_data_iniciativas = df_iniciativas.to_json(orient="records")
+            st.download_button(
+                label="Baixar JSON - Valores Alocados por Iniciativa",
+                data=json_data_iniciativas,
+                file_name="valores_alocados_iniciativa.json",
+                mime="application/json",
+                use_container_width=True,
+                key="download_json_iniciativas"
+            )
+        with col3:
+            buffer = io.BytesIO()
+            with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                df_iniciativas.to_excel(writer, index=False)
+            st.download_button(
+                label="Baixar Excel - Valores Alocados por Iniciativa",
+                data=buffer,
+                file_name="valores_alocados_iniciativa.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+                key="download_excel_iniciativas"
+            )
+
+
+
+
+
+
+
+    # Seção para mostrar td_dados_resumos_sei e botões de download
+        st.divider()
+        st.markdown("##### Tabela de Resumos SEI")
+        # 1) Ler tabela de resumos_sei do banco
+        conn = sqlite3.connect(DB_PATH)
+        df_resumos_sei = pd.read_sql_query("SELECT * FROM td_dados_resumos_sei", conn)
+        conn.close()
+        if df_resumos_sei.empty:
+            st.warning("Tabela 'tf_resumos_sei' está vazia.")
+            
+        # 2) Exibir a tabela de resumos_sei
+        st.dataframe(df_resumos_sei, use_container_width=True, hide_index=True)
+        # 3) colunas para botão de download em JSON da tabela inteira, um campo para inserir o id do resumo e um botão para download do JSON do resumo específico
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            json_data_resumos = df_resumos_sei.to_json(orient="records")
+            st.download_button(
+                label="Baixar JSON - Resumos SEI",
+                data=json_data_resumos,
+                file_name="resumos_sei.json",
+                mime="application/json",
+                use_container_width=True,
+                key="download_json_resumos"
+            )
+        with col2:
+            # campo para inserir o id do resumo
+            id_resumo = st.text_input("ID do Resumo SEI", placeholder="Digite o ID do Resumo SEI")
+            if id_resumo:
+                # filtrar o dataframe para o id inserido
+                df_resumo_selecionado = df_resumos_sei[df_resumos_sei["id_resumo"] == int(id_resumo)]
+                if not df_resumo_selecionado.empty:
+                    json_data_resumo = df_resumo_selecionado.to_json(orient="records")
+                    st.download_button(
+                        label="Baixar JSON - Resumo SEI Selecionado",
+                        data=json_data_resumo,
+                        file_name=f"resumo_sei_{id_resumo}.json",
+                        mime="application/json",
+                        use_container_width=True,
+                        key="download_json_resumo_selecionado"
+                    )
+        with col3:
+            buffer = io.BytesIO()
+            with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                df_resumos_sei.to_excel(writer, index=False)
+            st.download_button(
+                label="Baixar Excel - Resumos SEI",
+                data=buffer,
+                file_name="resumos_sei.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+                key="download_excel_resumos"
+            )
+
+
+# # -----------------------------------------------------------------------------
+# # 12) Debugging - Exibir o estado da sessão
+# # -----------------------------------------------------------------------------
 # st.write(st.session_state)
