@@ -2314,7 +2314,7 @@ with st.form("form_textos_resumo"):
                         empty_fields.append(f"Detalhes de {key}")
 
                 if empty_fields:
-                    st.warning("Os seguintes estão vazios:")
+                    st.error("Os seguintes estão vazios:")
                     for field in empty_fields:
                         st.warning(f"- {field}")
             

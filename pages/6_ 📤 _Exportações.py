@@ -109,11 +109,18 @@ if st.session_state["usuario_logado"] and (
             """,
             unsafe_allow_html=True
         )
+        # caption informando que a exportação de todos os dados em um único arquivo está ao final da página
+        st.caption("🔽 Para exportar todos os dados em um único arquivo, role até o final da página.")
+
+    
+
 
 
     #####################################
     # 10) Exibição Detalhada e Download #
     #####################################
+
+
     st.divider()
 
     
@@ -647,6 +654,52 @@ if st.session_state["usuario_logado"] and st.session_state["perfil"] == "admin":
                     key="download_excel_iniciativas_dim"
                 )
 
+    # Ação de Aplicação (td_acoes_aplicacao)
+    with st.expander("📊 Tabela Dimensão: Ação de Aplicação", expanded=False):
+        st.divider()
+        conn = sqlite3.connect(DB_PATH)
+        df_acoes_aplicacao = pd.read_sql_query("SELECT * FROM td_acoes_aplicacao", conn)
+        conn.close()
+        st.markdown("##### Tabela de Ação de Aplicação")
+        if df_acoes_aplicacao.empty:
+            st.warning("Tabela 'td_acoes_aplicacao' está vazia.")
+        else:
+            st.dataframe(df_acoes_aplicacao, use_container_width=True, hide_index=True)
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                csv_data_acoes_aplicacao = df_acoes_aplicacao.to_csv(index=False).encode("utf-8")
+                st.download_button(
+                    label="Baixar CSV - Ação de Aplicação",
+                    data=csv_data_acoes_aplicacao,
+                    file_name="acoes_aplicacao.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                    key="download_csv_acoes_aplicacao"
+                )
+            with col2:
+                json_data_acoes_aplicacao = df_acoes_aplicacao.to_json(orient="records")
+                st.download_button(
+                    label="Baixar JSON - Ação de Aplicação",
+                    data=json_data_acoes_aplicacao,
+                    file_name="acoes_aplicacao.json",
+                    mime="application/json",
+                    use_container_width=True,
+                    key="download_json_acoes_aplicacao"
+                )
+            with col3:
+                buffer = io.BytesIO()
+                with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                    df_acoes_aplicacao.to_excel(writer, index=False)
+                st.download_button(
+                    label="Baixar Excel - Ação de Aplicação",
+                    data=buffer,
+                    file_name="acoes_aplicacao.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                    key="download_excel_acoes_aplicacao"
+                )
+                
+
     # Insumos
     with st.expander("📊 Tabela Dimensão: Insumos", expanded=False):
         st.divider()
@@ -922,3 +975,203 @@ if st.session_state["usuario_logado"] and st.session_state["perfil"] == "admin":
     # 12) Debugging - Exibir o estado da sessão (opcional)
     # st.write(st.session_state)
     # -----------------------------------------------------------------------------
+
+
+
+
+    st.divider()
+
+    # seção para download de todos os dados disponíveis em um único arquivo, formatos csv, json e excel. 
+    # nos formatos csv e excel, cada tabela deve ser uma aba separada
+    st.markdown("##### Download de Todos os Dados Disponíveis")
+    st.markdown("""
+    Você pode baixar todos os dados disponíveis em um único arquivo. Os dados estão organizados em diferentes tabelas,
+    cada uma representando uma parte do sistema. Os formatos disponíveis para download são CSV, JSON e Excel.
+    """)
+
+    # aproveitar das consultas já realizadas nas tabelas de dimensão e regras de negócio e disponibilizar o download
+    # de todas as tabelas em um único arquivo Excel
+    # tabela tetos_completo já foi lida e está disponível na variável df_tetos_completo
+    # tabela regras já foi lida e está disponível na variável df_regras
+    # tabela dados_base já foi lida e está disponível na variável df_dados_base_iniciativas
+    # tabela resumos já foi lida e está disponível na variável df_dados_resumos_sei
+    # tabela demandantes já foi lida e está disponível na variável df_demandantes
+    # tabela iniciativas já foi lida e está disponível na variável df_iniciativas
+    # tabela acoes_aplicacao já foi lida e está disponível na variável df_acoes_aplicacao
+    # tabela insumos já foi lida e está disponível na variável df_insumos
+    # tabela acoes já foi lida e está disponível na variável df_acoes
+    # tabela processos já foi lida e está disponível na variável df_processos
+    # tabela macroprocessos já foi lida e está disponível na variável df_macroprocessos
+    # tabela atividades já foi lida e está disponível na variável df_atividades
+    # tabela unidades já foi lida e está disponível na variável df_unidades
+    # tabela regras_negocio_processada já foi lida e está disponível na variável df_processed
+    conn = sqlite3.connect(DB_PATH)
+    df_regras = pd.read_sql_query("SELECT * FROM tf_cadastro_regras_negocio", conn)
+    df_insumos = pd.read_sql_query("SELECT * FROM td_insumos", conn)
+    df_acoes = pd.read_sql_query("SELECT * FROM td_samge_acoes_manejo", conn)
+    df_iniciativas = pd.read_sql_query("SELECT * FROM td_iniciativas", conn)
+    conn.close()
+
+    def process_regra(regra_json):
+        """Processa a coluna `regra` em formato JSON."""
+        regra = json.loads(regra_json)
+        objetivo_geral = regra.get("objetivo_geral", "")
+        objetivos_especificos = regra.get("objetivos_especificos", [])
+        eixos_tematicos = regra.get("eixos_tematicos", [])
+        acoes = regra.get("acoes", [])
+        insumos = regra.get("insumos", [])
+        return objetivo_geral, objetivos_especificos, eixos_tematicos, acoes, insumos
+
+    processed_data = []
+    for _, row in df_regras.iterrows():
+        (objetivo_geral,
+         objetivos_especificos,
+         eixos_tematicos,
+         acoes,
+         insumos) = process_regra(row['regra'])
+
+        nome_iniciativa = ""
+        temp_iniciativa = df_iniciativas[df_iniciativas['id_iniciativa'] == row['id_iniciativa']]
+        if not temp_iniciativa.empty:
+            nome_iniciativa = temp_iniciativa['nome_iniciativa'].values[0]
+
+        for objetivo in objetivos_especificos:
+            for eixo in eixos_tematicos:
+                for acao in acoes:
+                    temp_acao = df_acoes[df_acoes['id_ac'] == int(acao)]
+                    acao_nome = temp_acao['nome'].values[0] if not temp_acao.empty else acao
+                    for insumo in insumos:
+                        insumo_data = df_insumos[df_insumos['id'] == int(insumo)]
+                        if not insumo_data.empty:
+                            insumo_nome = insumo_data['descricao_insumo'].values[0]
+                            elemento_despesa = insumo_data['elemento_despesa'].values[0]
+                            especificacao_padrao = insumo_data['especificacao_padrao'].values[0]
+                            preco_referencia = insumo_data['preco_referencia'].values[0]
+                        else:
+                            insumo_nome = insumo
+                            elemento_despesa = ""
+                            especificacao_padrao = ""
+                            preco_referencia = ""
+
+                        processed_data.append([
+                            row['id_iniciativa'], 
+                            nome_iniciativa, 
+                            objetivo_geral, 
+                            objetivo, 
+                            eixo['id_eixo'], 
+                            eixo['nome_eixo'], 
+                            acao, 
+                            acao_nome, 
+                            insumo, 
+                            insumo_nome, 
+                            elemento_despesa, 
+                            especificacao_padrao, 
+                            preco_referencia
+                        ])
+
+    df_processed = pd.DataFrame(processed_data, columns=[
+        'id_iniciativa', 
+        'nome_iniciativa', 
+        'objetivo_geral', 
+        'objetivo_especifico', 
+        'id_eixo_tematico', 
+        'eixo_tematico', 
+        'id_acao', 
+        'acao', 
+        'id_insumo', 
+        'insumo', 
+        'elemento_despesa', 
+        'especificacao_padrao', 
+        'preco_referencia'
+    ])
+    # criar um arquivo Excel com todas as tabelas
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+        df_tetos_completo.to_excel(writer, sheet_name='tetos_completo', index=False)
+        df_regras.to_excel(writer, sheet_name='regras', index=False)
+        df_processed.to_excel(writer, sheet_name='regras_negocio_processada', index=False)
+        df_dados_base_iniciativas.to_excel(writer, sheet_name='dados_base_iniciativas', index=False)
+        df_dados_resumos_sei.to_excel(writer, sheet_name='dados_resumos_sei', index=False)
+        df_demandantes.to_excel(writer, sheet_name='demandantes', index=False)
+        df_iniciativas.to_excel(writer, sheet_name='iniciativas', index=False)
+        df_acoes_aplicacao.to_excel(writer, sheet_name='acoes_aplicacao', index=False)
+        df_insumos.to_excel(writer, sheet_name='insumos', index=False)
+        df_acoes.to_excel(writer, sheet_name='acoes', index=False)
+        df_processos.to_excel(writer, sheet_name='processos', index=False)
+        df_macroprocessos.to_excel(writer, sheet_name='macroprocessos', index=False)
+        df_atividades.to_excel(writer, sheet_name='atividades', index=False)
+        df_unidades.to_excel(writer, sheet_name='unidades', index=False)
+    buffer.seek(0)
+    st.download_button(
+        label="Baixar Todos os Dados Disponíveis (Excel)",
+        data=buffer,
+        file_name="todos_dados_disponiveis.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True,
+        type="primary"
+    )
+    st.markdown("""
+    Você também pode baixar todos os dados disponíveis em um único arquivo CSV ou JSON.
+    Os dados estão organizados em diferentes tabelas, cada uma representando uma parte do sistema.
+    """)
+    # criar um arquivo CSV com todas as tabelas
+    buffer_csv = io.StringIO()
+    df_tetos_completo.to_csv(buffer_csv, index=False)
+    df_regras.to_csv(buffer_csv, index=False)
+    df_processed.to_csv(buffer_csv, index=False)
+    df_dados_base_iniciativas.to_csv(buffer_csv, index=False)
+    df_dados_resumos_sei.to_csv(buffer_csv, index=False)
+    df_demandantes.to_csv(buffer_csv, index=False)
+    df_iniciativas.to_csv(buffer_csv, index=False)
+    df_acoes_aplicacao.to_csv(buffer_csv, index=False)
+    df_insumos.to_csv(buffer_csv, index=False)
+    df_acoes.to_csv(buffer_csv, index=False)
+    df_processos.to_csv(buffer_csv, index=False)
+    df_macroprocessos.to_csv(buffer_csv, index=False)
+    df_atividades.to_csv(buffer_csv, index=False)
+    df_unidades.to_csv(buffer_csv, index=False)
+    buffer_csv.seek(0)
+    st.download_button(
+        label="Baixar Todos os Dados Disponíveis (CSV)",
+        data=buffer_csv.getvalue(),
+        file_name="todos_dados_disponiveis.csv",
+        mime="text/csv",
+        use_container_width=True
+    )
+    # criar um arquivo JSON com todas as tabelas
+    def convert_timestamps(data):
+        if isinstance(data, dict):
+            return {k: convert_timestamps(v) for k, v in data.items()}
+        elif isinstance(data, list):
+            return [convert_timestamps(v) for v in data]
+        elif isinstance(data, pd.Timestamp):
+            return data.isoformat()
+        else:
+            return data
+
+    all_data = {
+        "tetos_completo": convert_timestamps(df_tetos_completo.to_dict(orient='records')),
+        "regras": convert_timestamps(df_regras.to_dict(orient='records')),
+        "regras_negocio_processada": convert_timestamps(df_processed.to_dict(orient='records')),
+        "dados_base_iniciativas": convert_timestamps(df_dados_base_iniciativas.to_dict(orient='records')),
+        "dados_resumos_sei": convert_timestamps(df_dados_resumos_sei.to_dict(orient='records')),
+        "demandantes": convert_timestamps(df_demandantes.to_dict(orient='records')),
+        "iniciativas": convert_timestamps(df_iniciativas.to_dict(orient='records')),
+        "acoes_aplicacao": convert_timestamps(df_acoes_aplicacao.to_dict(orient='records')),
+        "insumos": convert_timestamps(df_insumos.to_dict(orient='records')),
+        "acoes": convert_timestamps(df_acoes.to_dict(orient='records')),
+        "processos": convert_timestamps(df_processos.to_dict(orient='records')),
+        "macroprocessos": convert_timestamps(df_macroprocessos.to_dict(orient='records')),
+        "atividades": convert_timestamps(df_atividades.to_dict(orient='records')),
+        "unidades": convert_timestamps(df_unidades.to_dict(orient='records'))
+    }
+    buffer_json = io.StringIO()
+    json.dump(all_data, buffer_json)
+    buffer_json.seek(0)
+    st.download_button(
+        label="Baixar Todos os Dados Disponíveis (JSON)",
+        data=buffer_json.getvalue(),
+        file_name="todos_dados_disponiveis.json",
+        mime="application/json",
+        use_container_width=True
+    )
