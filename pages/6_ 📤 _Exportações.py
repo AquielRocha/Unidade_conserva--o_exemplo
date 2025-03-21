@@ -1110,10 +1110,7 @@ if st.session_state["usuario_logado"] and st.session_state["perfil"] == "admin":
         use_container_width=True,
         type="primary"
     )
-    st.markdown("""
-    Você também pode baixar todos os dados disponíveis em um único arquivo CSV ou JSON.
-    Os dados estão organizados em diferentes tabelas, cada uma representando uma parte do sistema.
-    """)
+
     # criar um arquivo CSV com todas as tabelas
     buffer_csv = io.StringIO()
     df_tetos_completo.to_csv(buffer_csv, index=False)
