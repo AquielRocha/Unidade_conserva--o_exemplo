@@ -822,7 +822,15 @@ with st.form("form_textos_resumo"):
         # Conectar ao banco para carregar a tabela de insumos
         conn = sqlite3.connect(DB_PATH)
         df_insumos_all = pd.read_sql_query(
-            "SELECT id, elemento_despesa, especificacao_padrao, descricao_insumo, preco_referencia FROM td_insumos WHERE situacao = 'ativo'",
+            """
+            SELECT id, elemento_despesa, especificacao_padrao, descricao_insumo, preco_referencia 
+            FROM td_insumos 
+            WHERE situacao = 'ativo' 
+            AND especificacao_padrao IS NOT NULL 
+            AND especificacao_padrao != '' 
+            AND descricao_insumo IS NOT NULL 
+            AND descricao_insumo != ''
+            """,
             conn
         )
         conn.close()
