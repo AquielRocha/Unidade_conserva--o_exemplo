@@ -2289,17 +2289,34 @@ with st.form("form_textos_resumo"):
             else:
                 st.session_state["eixos_tematicos"] = st.session_state["eixos_tematicos"]
 
+                # salvar formas de contratação em session state
+                if "formas_contratacao_detalhes" not in st.session_state:
+                    st.session_state["formas_contratacao_detalhes"] = {}
+                else:
+                    st.session_state["formas_contratacao_detalhes"] = st.session_state["formas_contratacao_detalhes"]
+                
+                empty_fields = []
 
-            # salvar formas de contratação em session state
-            if "formas_contratacao_detalhes" not in st.session_state:
-                st.session_state["formas_contratacao_detalhes"] = {}
-            else:
-                st.session_state["formas_contratacao_detalhes"] = st.session_state["formas_contratacao_detalhes"]
-            # salvar formas de contratação em session state
-            if "df_formas_contratacao" not in st.session_state:
-                st.session_state["df_formas_contratacao"] = {}
-            else:
-                st.session_state["df_formas_contratacao"] = st.session_state["df_formas_contratacao"]
+                if not st.session_state["formas_contratacao_detalhes"]:
+                    empty_fields.append("Formas de Contratação Detalhes")
+                
+                if "df_formas_contratacao" not in st.session_state:
+                    st.session_state["df_formas_contratacao"] = {}
+                else:
+                    st.session_state["df_formas_contratacao"] = st.session_state["df_formas_contratacao"]
+                
+                if not st.session_state["df_formas_contratacao"]:
+                    empty_fields.append("Formas de Contratação")
+
+                # Verifica campos específicos dentro de formas_contratacao_detalhes
+                for key, value in st.session_state["formas_contratacao_detalhes"].items():
+                    if not value:
+                        empty_fields.append(f"Detalhes de {key}")
+
+                if empty_fields:
+                    st.warning("Os seguintes estão vazios:")
+                    for field in empty_fields:
+                        st.warning(f"- {field}")
             
 
         st.success("Alterações salvas com sucesso!")
@@ -2360,7 +2377,7 @@ st.divider()
 # st.divider()
 
 
-# st.write(st.session_state)
+
 
 # chamar função de consulta da tabela cadastro regras negocio
 conn = sqlite3.connect(DB_PATH)
@@ -2387,3 +2404,7 @@ if "df_uc_editado" in st.session_state:
         df_uc_editado = st.session_state["df_uc_editado"]
         st.write("### Distribuição de Recursos por Unidade de Conservação")
         st.dataframe(df_uc_editado, use_container_width=True)
+
+
+
+st.write(st.session_state)
